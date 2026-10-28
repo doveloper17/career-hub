@@ -1,9 +1,10 @@
 ---
+import { applicationViews } from '../../lib/workflow.mjs';
 import Layout from '../layouts/Layout.astro';
-import { careers, applications } from '../../lib/store.mjs';
+import { careers } from '../../lib/store.mjs';
 import { labels } from '../lib/view';
 const records = careers();
-const apps = applications().filter(a => a.kind !== 'representative');
+const apps = applicationViews().filter(a => a.kind !== 'representative');
 const waiting = apps.filter(a => a.status === 'awaiting_human_approval').length;
 const companyCount = new Set(records.filter(c => c.kind === 'company').map(c => c.company)).size;
 ---

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { stagedFindings, commitFindings } from './secrets.mjs';
 import { readJson, applications } from '../lib/store.mjs';
-import { validateAll, verify } from '../lib/workflow.mjs';
+import { validateAll, submissionState } from '../lib/workflow.mjs';
 import { isLocalOnlyPath } from '../lib/repository-policy.mjs';
 import { assertTemplateData } from '../lib/template-policy.mjs';
 
@@ -57,7 +57,7 @@ try {
     const validation = validateAll();
     if (validation.errors.length) throw new Error(validation.errors.join('\n'));
     if (policy.mode === 'private') for (const app of applications()) {
-      if (app.revision > 0 && (!['approved','submitted'].includes(app.status) || app.approval?.digest !== verify(app.id).digest)) throw new Error(`${app.id}: 현재 이력서 사람 승인 필요`);
+      if (app.revision > 0 && !submissionState(app.id).approved) throw new Error(`${app.id}: 현재 이력서 사람 승인 필요`);
     }
     fs.unlinkSync(approvalPath);
   } else throw new Error('알 수 없는 Git guard 명령');

@@ -1,10 +1,11 @@
 ---
+import { applicationViews } from '../../../lib/workflow.mjs';
 import Layout from '../../layouts/Layout.astro';
 import Search from '../../components/Search.astro';
-import { applications, textFile } from '../../../lib/store.mjs';
+import { textFile } from '../../../lib/store.mjs';
 import { labels } from '../../lib/view';
 import { statuses } from '../../../lib/schema.mjs';
-const resumes = applications().filter(a => a.kind === 'representative');
+const resumes = applicationViews().filter(a => a.kind === 'representative');
 ---
 <Layout title="대표 이력서" eyebrow="YOUR CAREER AT A GLANCE">
   <div class="page-heading"><div><h1>대표 이력서<span class="orange">.</span></h1><p>나를 소개하는 기본 이력서입니다. 필요하면 회사나 JD를 연결해 관리하세요.</p></div><span class="large-count">{resumes.length}<small>RESUMES</small></span></div>

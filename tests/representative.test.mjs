@@ -41,7 +41,7 @@ test('대표 이력서도 승인 없이 고정할 수 없고 JD 변경 시 승�
   createApplication(base, '', root); generate(base.id, root);
   assert.throws(() => snapshot(base.id, root), /승인/);
   recordReview(base.id, { reviewer: '테스트', verdict: 'PASS', notes: '테스트 검토', checks: { hiring: true, naturalness: true, spelling: true, confidentiality: true } }, root);
-  approve(base.id, '테스트 승인자', root);
+  approve(base.id, '테스트 승인자', root, verify(base.id, root).digest);
   fs.writeFileSync(path.join(appDir(base.id, root), 'jd-raw.md'), '새 JD');
   assert.throws(() => snapshot(base.id, root), /승인/);
 });

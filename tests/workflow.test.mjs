@@ -50,18 +50,18 @@ test('pending ID로 출처를 바꾸면 실패한다', t => {
 });
 test('리뷰 없이 승인할 수 없고 모든 품질 체크가 필요하다', t => {
   const { root } = fixture(t);
-  assert.throws(() => approve('test-app','사람',root));
+  assert.throws(() => approve('test-app','사람',root,verify('test-app',root).digest));
   assert.throws(() => recordReview('test-app',{ reviewer:'r', verdict:'PASS', notes:'n',checks:{ hiring:true,naturalness:true,spelling:false,confidentiality:true } },root), /모든 리뷰/);
 });
 test('JD 또는 원본 변경은 리뷰와 승인을 무효화한다', t => {
-  const { root, dir } = fixture(t); review(root); approve('test-app','사람',root);
+  const { root, dir } = fixture(t); review(root); approve('test-app','사람',root,verify('test-app',root).digest);
   const before = digest('test-app',root);
   fs.appendFileSync(path.join(dir,'jd-raw.md'),'\n다른 요건');
   assert.notEqual(digest('test-app',root),before);
   assert.throws(() => snapshot('test-app',root), /승인/);
 });
 test('승인본은 재생성할 수 없고 제출 스냅샷은 덮어쓰지 않는다', t => {
-  const { root, dir } = fixture(t); review(root); approve('test-app','사람',root);
+  const { root, dir } = fixture(t); review(root); approve('test-app','사람',root,verify('test-app',root).digest);
   assert.throws(() => generate('test-app',root), /새 지원 ID/);
   const target = snapshot('test-app',root);
   assert.equal(fs.readFileSync(path.join(target,'resume.md'),'utf8'), fs.readFileSync(path.join(dir,'resume.md'),'utf8'));
@@ -90,5 +90,5 @@ test('실제 경력도 같은 경로에서 읽고 가상 지원의 근거와 분
   assert.equal(verify('test-app', root).passed, false);
   createApplication({ id:'real-app', company:'테스트 회사', position:'Backend', createdAt:'2026-10-28', deadline:null, jdUrl:null, fictional:false, keywords:['Kotlin'] }, '테스트 JD', root);
   generate('real-app', root);
-  assert.equal(verify('real-app', root).passed, true);
+  assert.equal(verify('real-app', root).passed, false); // verified 표기만으로 실제 원본을 승인하지 않음
 });

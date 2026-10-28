@@ -1,4 +1,5 @@
 ---
+import { sourceStatus } from '../../../lib/source-approval.mjs';
 import Layout from '../../layouts/Layout.astro';
 import Search from '../../components/Search.astro';
 import { careers } from '../../../lib/store.mjs';
@@ -8,6 +9,6 @@ const records = careers().sort((a,b) => b.start.localeCompare(a.start));
 <Layout title="경력 라이브러리" eyebrow="THE FOUNDATION OF YOUR STORY">
   <div class="page-heading"><div><h1>경력 라이브러리<span class="orange">.</span></h1><p>회사에서의 성과부터 개인 프로젝트까지, 내 경험의 원본을 모아둡니다.</p></div><span class="large-count">{records.length}<small>EXPERIENCES</small></span></div>
   <Search placeholder="회사명, 역할, 기술, 기간으로 검색" options={[{ value: 'project,study', label: '프로젝트 & 스터디' }, ...['company','project','study'].map(value => ({ value, label: labels[value] }))]} />
-  <div class="card-grid">{records.map(c => <article class="panel career-card" data-searchable={`${c.company} ${c.title} ${c.role} ${c.start} ${c.end || '현재'} ${c.tags.join(' ')}`} data-type={c.kind}><div class="card-top"><span class="badge neutral">{labels[c.kind]}</span><span class="subtle">{c.start.slice(0,7)} — {c.end?.slice(0,7) || '현재'}</span></div><p class="company-name">{c.company}</p><h2><a href={`/career/${c.slug}/`}>{c.title}</a></h2><p>{c.problem}</p><div class="tags">{c.tags.map(t => <span>{t}</span>)}</div><div class="card-footer"><span>{c.role}</span><a href={`/career/${c.slug}/`} aria-label={`${c.title} 상세 보기`}>기록 읽기 ↗</a></div></article>)}</div>
+  <div class="card-grid">{records.map(c => <article class="panel career-card" data-searchable={`${c.company} ${c.title} ${c.role} ${c.start} ${c.end || '현재'} ${c.tags.join(' ')}`} data-type={c.kind}><div class="card-top"><span class="badge neutral">{labels[c.kind]}</span><span class="subtle">{c.start.slice(0,7)} — {c.end?.slice(0,7) || '현재'}</span></div><p><span class="badge neutral">{sourceStatus(c).reason}</span></p><p class="company-name">{c.company}</p><h2><a href={`/career/${c.slug}/`}>{c.title}</a></h2><p>{c.problem}</p><div class="tags">{c.tags.map(t => <span>{t}</span>)}</div><div class="card-footer"><span>{c.role}</span><a href={`/career/${c.slug}/`} aria-label={`${c.title} 상세 보기`}>기록 읽기 ↗</a></div></article>)}</div>
   <p class="empty panel" data-empty hidden>검색 결과가 없습니다. 다른 검색어나 유형을 선택하세요.</p>
 </Layout>

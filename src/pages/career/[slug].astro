@@ -1,4 +1,5 @@
 ---
+import { sourceStatus } from '../../../lib/source-approval.mjs';
 import Layout from '../../layouts/Layout.astro';
 import { careers, applications, textFile } from '../../../lib/store.mjs';
 import { markdown, labels } from '../../lib/view';
@@ -8,5 +9,5 @@ const used = applications().filter(a => textFile(a.dir, 'provenance.json').inclu
 ---
 <Layout title={c.title} eyebrow="CAREER RECORD">
   <a class="back" href="/career/">← 경력 라이브러리</a><div class="page-heading"><div><span class="badge neutral">{labels[c.kind]}</span><h1 class="detail-title">{c.title}</h1><p>{c.company} · {c.role} · {c.start} — {c.end || '현재'}</p></div></div>
-  <div class="detail-grid"><article><div class="panel fact-box"><h2>경험의 핵심</h2>{[{ name:'문제', value:c.problem },{ name:'행동', value:c.action },{ name:'결과', value:c.result },{ name:'기여 범위', value:c.contribution }].map(r => <div class="fact-row"><strong>{r.name}</strong><p>{r.value}</p></div>)}</div><div class="panel prose article-body" set:html={markdown(c.body)}></div></article><aside><section class="panel side-detail"><h3>기록 정보</h3><dl><dt>출처 ID</dt><dd class="mono">{c.id}</dd><dt>확인 상태</dt><dd><span class="badge approved">확인된 기록</span></dd><dt>공개 범위</dt><dd>{c.visibility === 'public' ? '공개 가능' : '비공개'}</dd><dt>기술</dt><dd class="tags">{c.tags.map(t => <span>{t}</span>)}</dd></dl></section><section class="panel side-detail"><h3>연결된 이력서</h3>{used.length ? used.map(a => <a class="linked" href={`/applications/${a.id}/`}>{a.title || a.company} ↗</a>) : <p>아직 연결된 이력서가 없습니다.</p>}</section></aside></div>
+  <div class="detail-grid"><article><div class="panel fact-box"><h2>경험의 핵심</h2>{[{ name:'문제', value:c.problem },{ name:'행동', value:c.action },{ name:'결과', value:c.result },{ name:'기여 범위', value:c.contribution }].map(r => <div class="fact-row"><strong>{r.name}</strong><p>{r.value}</p></div>)}</div><div class="panel prose article-body" set:html={markdown(c.body)}></div></article><aside><section class="panel side-detail"><h3>기록 정보</h3><dl><dt>출처 ID</dt><dd class="mono">{c.id}</dd><dt>확인 상태</dt><dd><span class={sourceStatus(c).usable ? "badge approved" : "badge review_failed"}>{sourceStatus(c).reason}</span></dd><dt>공개 범위</dt><dd>{c.visibility === 'public' ? '공개 가능' : '비공개'}</dd><dt>기술</dt><dd class="tags">{c.tags.map(t => <span>{t}</span>)}</dd></dl></section><section class="panel side-detail"><h3>연결된 이력서</h3>{used.length ? used.map(a => <a class="linked" href={`/applications/${a.id}/`}>{a.title || a.company} ↗</a>) : <p>아직 연결된 이력서가 없습니다.</p>}</section></aside></div>
 </Layout>

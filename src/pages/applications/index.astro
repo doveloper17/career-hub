@@ -1,10 +1,10 @@
 ---
+import { applicationViews } from '../../../lib/workflow.mjs';
 import Layout from '../../layouts/Layout.astro';
 import Search from '../../components/Search.astro';
-import { applications } from '../../../lib/store.mjs';
 import { labels } from '../../lib/view';
 import { statuses } from '../../../lib/schema.mjs';
-const apps = applications().filter(a => a.kind !== 'representative');
+const apps = applicationViews().filter(a => a.kind !== 'representative');
 ---
 <Layout title="지원별 이력서" eyebrow="ONE OPPORTUNITY, ONE STORY">
   <div class="page-heading"><div><h1>지원별 이력서<span class="orange">.</span></h1><p>각 회사와 포지션에 맞춘 이력서, 작성 근거와 검토 결과를 함께 보관합니다.</p></div><span class="large-count">{apps.length}<small>APPLICATIONS</small></span></div>
