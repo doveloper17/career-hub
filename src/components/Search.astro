@@ -1,0 +1,26 @@
+---
+interface Props { placeholder?: string; options?: { value: string; label: string }[]; filterLabel?: string }
+const { placeholder = '검색어를 입력하세요', options = [], filterLabel = '전체 유형' } = Astro.props;
+const requestedFilter = Astro.url.searchParams.get('type');
+const initialFilter = options.some(o => o.value === requestedFilter) ? requestedFilter : '';
+---
+<div class="search-toolbar">
+  <label class="search-input"><span aria-hidden="true">⌕</span><span class="sr-only">검색</span><input type="search" placeholder={placeholder} data-search /></label>
+  {options.length > 0 && <label><span class="sr-only">분류</span><select data-filter><option value="">{filterLabel}</option>{options.map(o => <option value={o.value} selected={o.value === initialFilter}>{o.label}</option>)}</select></label>}
+  <span class="result-count" data-count aria-live="polite"></span>
+</div>
+<script>
+  const input = document.querySelector<HTMLInputElement>('[data-search]');
+  const filter = document.querySelector<HTMLSelectElement>('[data-filter]');
+  const cards = [...document.querySelectorAll<HTMLElement>('[data-searchable]')];
+  function update() {
+    let count = 0;
+    for (const card of cards) {
+      const match = (card.dataset.searchable || '').toLowerCase().includes(input?.value.toLowerCase().trim() || '') && (!filter?.value || filter.value.split(',').includes(card.dataset.type || ''));
+      card.hidden = !match; if (match) count++;
+    }
+    const label = document.querySelector('[data-count]'); if (label) label.textContent = `${count}개의 기록`;
+    const empty = document.querySelector<HTMLElement>('[data-empty]'); if (empty) empty.hidden = count > 0;
+  }
+  input?.addEventListener('input', update); filter?.addEventListener('change', update); update();
+</script>

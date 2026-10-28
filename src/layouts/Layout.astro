@@ -1,0 +1,33 @@
+---
+import '../styles/global.css';
+interface Props { title: string; eyebrow?: string }
+const { title, eyebrow = 'MY CAREER WORKSPACE' } = Astro.props;
+const current = Astro.url.pathname;
+const nav = [{ href: '/', icon: '◫', name: '워크스페이스' }, { href: '/career/', icon: '▤', name: '경력 라이브러리' }, { href: '/resumes/', icon: '▧', name: '대표 이력서' }, { href: '/applications/', icon: '↗', name: '지원별 이력서' }, { href: '/compare/', icon: '⇄', name: '출처 비교' }];
+---
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content="경력의 근거부터 지원별 이력서까지, 나만의 커리어 워크스페이스" />
+    <title>{title} · Career Hub</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 이동</a>
+    <aside class="sidebar">
+      <a class="brand" href="/"><span class="brand-mark">c<span>h</span></span><span>career hub<small>BUILD ON YOUR EXPERIENCE</small></span></a>
+      <div class="workspace-label"><span class="avatar">CH</span><div>나의 커리어 공간<small>로컬 경력 관리</small></div></div>
+      <div class="nav-caption">WORKSPACE</div>
+      <nav aria-label="주 메뉴">{nav.map(item => <a href={item.href} class:list={['nav-item', { active: item.href === '/' ? current === '/' : current.startsWith(item.href) }]} aria-current={(item.href === '/' ? current === '/' : current.startsWith(item.href)) ? 'page' : undefined}><span aria-hidden="true">{item.icon}</span>{item.name}</a>)}</nav>
+      <div class="sidebar-note"><span class="dot"></span> 사실에서 시작하는 이력서<p>기록은 차곡차곡.<br />표현은 지원하는 곳에 맞게.</p></div>
+      <footer class="sidebar-footer">LOCAL FIRST <span>v0.1</span></footer>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><span>내 작업 공간 <span class="crumb">/ {title}</span></span><span class="mode-pill"><span class="dot"></span>나의 워크스페이스</span></header>
+      <main id="main"><div class="eyebrow">{eyebrow}</div><slot /></main>
+      <footer class="page-footer">Career Hub <span>가상 예시는 fictional로 구분합니다. 개인 경력 자료를 공개 호스팅하지 마세요.</span></footer>
+    </div>
+  </body>
+</html>

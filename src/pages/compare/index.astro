@@ -1,0 +1,10 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { careers, applications, textFile } from '../../../lib/store.mjs';
+const records = careers();
+const apps = applications();
+---
+<Layout title="출처 비교" eyebrow="EVERY CLAIM HAS A SOURCE">
+  <div class="page-heading"><div><h1>문장 뒤의 근거<span class="orange">.</span></h1><p>이력서에 담긴 문장이 어디에서 왔는지, 원본과 나란히 확인하세요.</p></div></div>
+  {apps.map(app => { const claims = JSON.parse(textFile(app.dir, 'provenance.json') || '{"claims":[]}').claims; return <section class="comparison" id={app.id}><div class="section-title"><h2>{app.title || app.company} <span>{claims.length}개 문장</span></h2><a href={`/applications/${app.id}/`}>이력서 보기 ↗</a></div><div class="comparison-head"><span>이력서 문장</span><span>확인된 경력 원본</span></div>{claims.map((claim: { id: string; text: string; sources: string[] }) => <div class="comparison-row panel"><div><span class="overline">{claim.id}</span><p>{claim.text}</p></div><div>{claim.sources.map(id => { const source = records.find(c => c.id === id); return source ? <div><a class="source-link" href={`/career/${source.slug}/`}>{source.title} ↗</a><small class="mono">{source.id}</small><p>{source.statements.find(s => s === claim.text) || '원문과 다른 표현 — 재검토 필요'}</p></div> : <p class="error">출처 없음: {id}</p>; })}</div></div>)}{!claims.length && <p class="empty panel">생성된 이력서가 없습니다.</p>}</section>; })}
+</Layout>

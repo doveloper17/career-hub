@@ -1,0 +1,22 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Search from '../../components/Search.astro';
+import { applications, textFile } from '../../../lib/store.mjs';
+import { labels } from '../../lib/view';
+import { statuses } from '../../../lib/schema.mjs';
+const resumes = applications().filter(a => a.kind === 'representative');
+---
+<Layout title="대표 이력서" eyebrow="YOUR CAREER AT A GLANCE">
+  <div class="page-heading"><div><h1>대표 이력서<span class="orange">.</span></h1><p>나를 소개하는 기본 이력서입니다. 필요하면 회사나 JD를 연결해 관리하세요.</p></div><span class="large-count">{resumes.length}<small>RESUMES</small></span></div>
+  <Search placeholder="제목, 회사, 포지션으로 검색" filterLabel="전체 상태" options={statuses.map(value => ({ value, label: labels[value] }))} />
+  <div class="card-grid">{resumes.map(r => <article class="panel application-card" data-searchable={`${r.title} ${r.company} ${r.position} ${r.keywords.join(' ')}`} data-type={r.status}>
+    <div class="card-top"><span class="badge neutral">{r.fictional ? '가상 샘플' : '대표 이력서'}</span><span class={`badge ${r.status}`}>{labels[r.status]}</span></div>
+    <h2><a href={`/applications/${r.id}/`}>{r.title}</a></h2>
+    <p class="position">{[r.company, r.position].filter(Boolean).join(' · ') || '특정 회사·포지션 없음'}</p>
+    <p>{textFile(r.dir, 'jd-raw.md').trim() ? 'JD 연결됨' : 'JD 없이 경력 중심으로 작성'}</p>
+    <div class="tags">{r.keywords.length ? r.keywords.map(k => <span>{k}</span>) : <span>전체 확인된 경력</span>}</div>
+    <div class="card-footer"><span>{r.createdAt} · v{r.revision}</span><a href={`/applications/${r.id}/`}>이력서 보기 ↗</a></div>
+  </article>)}</div>
+  <p class="empty panel" data-empty hidden>대표 이력서가 없습니다. README의 new-representative 명령으로 작성하세요.</p>
+  <div class="bottom-note"><span>↳</span><p>대표 이력서도 출처 검증·리뷰·최종 승인을 거칩니다. 지원별 이력서 건수에는 포함하지 않습니다.</p></div>
+</Layout>

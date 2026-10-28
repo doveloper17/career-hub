@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { careers, applications } from '../../lib/store.mjs';
+import { labels } from '../lib/view';
+const records = careers();
+const apps = applications().filter(a => a.kind !== 'representative');
+const waiting = apps.filter(a => a.status === 'awaiting_human_approval').length;
+const companyCount = new Set(records.filter(c => c.kind === 'company').map(c => c.company)).size;
+---
+<Layout title="워크스페이스">
+  <section class="page-heading"><div><h1>경험을 쌓고,<br />다음 기회를 준비하세요<span class="orange">.</span></h1><p>흩어진 경력을 모으고, 지원하는 곳에 맞는 이야기를 만드세요.</p></div><a class="button dark" href="/applications/">지원별 이력서 보기 <span>↗</span></a></section>
+  <section class="stats" aria-label="기록 현황">
+    {[{ title: '함께한 회사', n: companyCount, detail: '회사별 경력 기록', icon: '▤', href: '/career/?type=company' }, { title: '프로젝트 & 스터디', n: records.filter(c => c.kind !== 'company').length, detail: '업무 밖에서도 쌓은 경험', icon: '◇', href: '/career/?type=project,study' }, { title: '지원별 이력서', n: apps.length, detail: '각 기회에 맞춘 이야기', icon: '↗', href: '/applications/' }, { title: '검토를 기다리는 이력서', n: waiting, detail: '최종 확인이 필요해요', icon: '◷', href: '/applications/?type=awaiting_human_approval' }].map(s => <a class="stat" href={s.href}><div>{s.title}<span>{s.icon}</span></div><strong>{String(s.n).padStart(2, '0')}</strong><small>{s.detail}</small></a>)}
+  </section>
+  <div class="dashboard-grid"><section><div class="section-title"><h2>최근 지원 기록 <span>{apps.length}</span></h2><a href="/applications/">전체 보기 ↗</a></div><div class="panel app-list">{apps.slice(0, 4).map((app, i) => <a class="app-row" href={`/applications/${app.id}/`}><span class:list={['company-icon', { peach: i % 2 === 0 }]}>{app.company.charAt(0)}</span><span class="app-info"><strong>{app.company}</strong><small>{app.position}</small></span><span class={`badge ${app.status}`}>{labels[app.status]}</span><span class="row-arrow">↗</span></a>)}{!apps.length && <p class="empty">아직 지원 기록이 없습니다. README의 JD 접수 명령으로 시작하세요.</p>}</div><div class="section-title spaced"><h2>나의 경력 라이브러리</h2><a href="/career/">전체 보기 ↗</a></div><div class="mini-grid">{records.filter(c => c.kind === 'company').slice(0, 2).map(c => <a class="panel career-mini" href={`/career/${c.slug}/`}><span class="overline">{c.start.slice(0, 7)} — {c.end?.slice(0, 7) || '현재'}</span><h3>{c.company}</h3><p>{c.title}</p><div class="tags">{c.tags.slice(0, 3).map(t => <span>{t}</span>)}</div></a>)}</div></section>
+  <aside class="guide-card"><div class="eyebrow">YOUR NEXT CHAPTER</div><h2>좋은 이력서는<br />좋은 기록에서.</h2><p>사실과 근거가 탄탄하면,<br />새로운 기회에도 자신 있게.</p><ol class="steps"><li><span>01</span><div><strong>경험을 기록하세요</strong><small>문제 · 행동 · 결과를 구체적으로</small></div></li><li><span>02</span><div><strong>기회와 연결하세요</strong><small>JD에 맞는 경력을 선택하고</small></div></li><li><span>03</span><div><strong>확인하고 완성하세요</strong><small>근거와 표현을 최종 검토하세요</small></div></li></ol><a href="/compare/">내 이력서의 근거 살펴보기 <span>→</span></a></aside></div>
+  <div class="bottom-note"><span>✳</span><p><strong>기록은 원본 그대로, 표현은 목적에 맞게.</strong> 모든 이력서 문장은 확인된 경력 기록으로 연결됩니다.</p></div>
+</Layout>

@@ -1,0 +1,15 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Search from '../../components/Search.astro';
+import { applications } from '../../../lib/store.mjs';
+import { labels } from '../../lib/view';
+import { statuses } from '../../../lib/schema.mjs';
+const apps = applications().filter(a => a.kind !== 'representative');
+---
+<Layout title="지원별 이력서" eyebrow="ONE OPPORTUNITY, ONE STORY">
+  <div class="page-heading"><div><h1>지원별 이력서<span class="orange">.</span></h1><p>각 회사와 포지션에 맞춘 이력서, 작성 근거와 검토 결과를 함께 보관합니다.</p></div><span class="large-count">{apps.length}<small>APPLICATIONS</small></span></div>
+  <Search placeholder="회사, 포지션, 날짜로 검색" filterLabel="전체 상태" options={statuses.map(value => ({ value, label: labels[value] }))} />
+  <div class="card-grid">{apps.map(a => <article class="panel application-card" data-searchable={`${a.company} ${a.position} ${a.createdAt} ${a.keywords.join(' ')}`} data-type={a.status}><div class="card-top"><span class="company-icon peach">{a.company.charAt(0)}</span><span class={`badge ${a.status}`}>{labels[a.status]}</span></div><h2><a href={`/applications/${a.id}/`}>{a.company}</a></h2><p class="position">{a.position}</p><div class="tags">{a.keywords.map(k => <span>{k}</span>)}</div><div class="card-footer"><span>{a.createdAt} · v{a.revision}</span><a href={`/applications/${a.id}/`}>이력서 보기 ↗</a></div></article>)}</div>
+  <p class="empty panel" data-empty hidden>해당하는 지원 기록이 없습니다.</p>
+  <div class="bottom-note"><span>↳</span><p>새 지원 건은 CLI에서 JD 원문과 키워드를 등록하면 생성됩니다. 사용 방법은 프로젝트 README를 참고하세요.</p></div>
+</Layout>
