@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.astro/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+.local/
+WORK_LOG.md
+WORK_LOG.*.md
+coverage/
+.idea/

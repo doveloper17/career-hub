@@ -1,0 +1,22 @@
+{
+  "name": "career-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env node_modules/astro/bin/astro.mjs dev --host 127.0.0.1",
+    "build": "npm run career -- validate && node --env-file-if-exists=.env node_modules/astro/bin/astro.mjs build",
+    "preview": "node --env-file-if-exists=.env node_modules/astro/bin/astro.mjs preview --host 127.0.0.1",
+    "start": "node --env-file-if-exists=.env scripts/start-server.mjs",
+    "check": "node --env-file-if-exists=.env node_modules/astro/bin/astro.mjs check",
+    "test": "node scripts/test-runner.mjs",
+    "test:live": "npm run build && node scripts/test-runner.mjs --live",
+    "career": "node --env-file-if-exists=.env scripts/cli.mjs",
+    "worklog:init": "node scripts/init-worklog.mjs",
+    "secrets": "node scripts/secrets.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs"
+  },
+  "dependencies": { "@astrojs/node": "^11.1.9", "astro": "^7.4.2", "gray-matter": "^4.0.3", "zod": "^4.6.7", "marked": "^15.0.0", "sanitize-html": "^2.14.0" },
+  "devDependencies": { "@astrojs/check": "^0.9.4", "typescript": "^5.7.0", "@types/sanitize-html": "^2.13.0" }
+}
