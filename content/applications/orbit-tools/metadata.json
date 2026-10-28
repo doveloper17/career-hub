@@ -1,0 +1,14 @@
+{
+  "id": "orbit-tools",
+  "company": "오르빗툴즈 · 가상 회사",
+  "position": "Developer Experience Engineer",
+  "createdAt": "2026-10-28",
+  "deadline": null,
+  "jdUrl": null,
+  "fictional": true,
+  "keywords": ["TypeScript", "Node.js"],
+  "status": "draft",
+  "revision": 0,
+  "retries": 0,
+  "approval": null
+}
