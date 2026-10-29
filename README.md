@@ -121,20 +121,24 @@ set "PORT="
 .
 ├── README.md                  # 독립 실행·인수인계 안내
 ├── AGENTS.md                  # AI 작업 규칙
+├── .codex/agents/             # Codex 서브에이전트 4개 역할 정의
 ├── docs/
 │   ├── PLAN.md                # 현재 설계 계약
+│   ├── SUBAGENTS.md           # 호출 흐름·입출력·독립 검토·재시도 규약
 │   └── REVIEWS.md             # 검토 관점과 반환 기준
 ├── lib/
 │   ├── schema.mjs             # Zod 경력·지원·출처·리뷰 스키마
 │   ├── store.mjs              # 단일 경로 파일 조회, ID/경로 검증
 │   ├── workflow.mjs           # 생성·검증·리뷰·승인·스냅샷
+│   ├── source-approval.mjs    # 실제 원본 확인 기록·해시 검사
+│   ├── transaction.mjs        # 저장 잠금·백업·복구
 │   └── repository-policy.mjs  # 로컬 기록의 Git 차단 정책
 ├── src/
 │   ├── pages/                 # 대시보드, career, applications, compare
 │   ├── layouts/ components/ styles/
 │   ├── lib/view.ts            # Markdown 렌더링·HTML 정제
 │   ├── content.config.ts      # 경력 컬렉션 정의
-│   └── middleware.ts          # 응답 캐시 방지
+│   └── middleware.ts          # 저장 잠금 시 읽기 차단·응답 캐시 방지
 ├── content/
 │   ├── career/verified/       # companies, projects, studies의 Markdown
 │   ├── career/pending/        # 생성에 사용하지 않는 확인 대기 자료
@@ -161,7 +165,7 @@ set "PORT="
 ```yaml
 ---
 id: EXP-DEMO-001
-slug: demo-automation
+slug: sample-automation
 title: 반복 점검 자동화
 company: 예시회사 · 가상 회사
 kind: company
@@ -304,7 +308,7 @@ npm run career -- verify my-main
 
 키워드가 없으면 같은 fictional 구분의 사용 가능한 public 경력(실제 경력은 현재 원본 승인 필요)을 최신순으로, 있으면 일치하는 경력을 우선순위대로 선택합니다. 근거가 없으면 사람 확인이 필요한 상태로 남습니다. 리뷰·승인·고정본 명령은 일반 이력서와 같습니다.
 
-저장은 공통 `content/applications/ID/` 구조를 사용하며 metadata의 `kind: "representative"`와 `title`로 구분합니다. 기존 kind 없는 자료는 일반 지원입니다. JD 없는 대표 이력서는 빈 `jd-raw.md`를 보관합니다. 상세·다운로드는 공통 `/applications/ID/` 경로를 사용합니다. 대표 이력서는 지원 목록/대시보드 지원 건수에서 제외되지만 출처 비교·Git 승인 검사는 동일하게 적용됩니다. 회사·JD·제목·원본 변경 시 기존 승인은 만료됩니다.
+저장은 공통 `content/applications/ID/` 구조를 사용하며 metadata의 `kind: "representative"`와 `title`로 구분합니다. `kind`를 생략하면 일반 지원으로 처리합니다. JD 없는 대표 이력서는 빈 `jd-raw.md`를 보관합니다. 상세·다운로드는 공통 `/applications/ID/` 경로를 사용합니다. 대표 이력서는 지원 목록/대시보드 지원 건수에서 제외되지만 출처 비교·Git 승인 검사는 동일하게 적용됩니다. 회사·JD·제목·원본 변경 시 승인은 만료됩니다.
 
 ### 저장소 연결
 
@@ -320,20 +324,18 @@ git remote add origin PRIVATE_REPOSITORY_URL
 
 공개 저장소의 Fork를 비공개 저장소로 간주하지 않습니다. `upstream`은 공개 코드 조회 전용, `origin`은 비공개 작업 저장소입니다. 실제 GitHub 공개 범위를 직접 확인하세요.
 
-실행 모드나 데이터 위치를 바꿀 필요가 없습니다. 모든 사용자가 같은 `content/career/`와 `content/applications/`를 사용합니다.
+경력은 `content/career/`, 이력서는 `content/applications/`에 저장합니다.
 
 클론 후 본인 자료로 바꾸는 순서:
 
 1. `origin`의 실제 공개 범위가 비공개인지 확인하고 `npm run hooks:install`을 실행합니다.
-2. `repository.json`을 `{ "mode": "private" }`로 변경합니다. 이것은 **Git 보호 정책**이며 실행 버전·데이터 경로를 바꾸지 않습니다.
+2. `repository.json`을 `{ "mode": "private" }`로 설정해 비공개 저장소용 **Git 보호 정책**을 적용합니다. 이 설정 자체가 GitHub 저장소의 공개 범위를 변경하지는 않습니다.
 3. 기존 가상 경력과 지원 폴더를 검토해 필요한 예시는 저장소 밖에 보관한 뒤 제거합니다. 원본 경력만 지우고 연결된 샘플 지원을 남기면 출처 검증이 실패하므로 함께 정리합니다. 실제 사용자 자료를 일괄 삭제하지 않습니다.
 4. `content/career/pending/`에 본인의 회사별 업무·프로젝트·스터디를 정리하고 사람이 확인한 내용만 `verified/`에 등록합니다. 실제 기록은 `fictional: false`, 실제 확인자, 적절한 공개 범위를 사용합니다. 샘플의 수치나 회사 이름만 바꾸어 자신의 사실로 간주하지 않습니다.
 5. 본인 JD로 새 지원 ID를 생성하고 검증·리뷰·사람 승인 절차를 진행합니다. 기존 샘플의 승인과 결과물을 재사용하지 않습니다.
 6. 브라우저를 새로고침해 확인합니다. 데이터가 없으면 빈 목록으로 표시하며 샘플로 대체하지 않습니다.
 
 `content/`는 비공개 저장소에서 이력을 버전 관리하므로 전체 gitignore 대상이 아닙니다. 공개 템플릿 정책에서는 Git Hook이 `template-data.json`에 등록된 가상 샘플의 경로와 SHA-256을 Git blob과 대조하여 미등록·변경된 데이터 파일을 차단합니다. 공유할 샘플을 추가·수정하는 템플릿 관리자는 내용이 가상임을 검토한 뒤 해당 상대 경로와 파일 바이트의 SHA-256도 갱신합니다. 개인 자료를 허용하려고 이 목록에 등록하지 마세요. 이 검사는 개인정보 자동 판별을 보장하지 않으므로 diff와 원격 공개 범위를 반드시 직접 확인하세요.
-
-이전 디렉터리 구조를 사용하던 별도 클론은 데이터 백업 후 기존 경력·지원 파일을 위 경로로 옮기고 중복 ID를 확인합니다. 기존 환경 파일의 실행 모드 변수는 제거합니다. 파일 이동 후 `npm run career -- validate`로 출처를 검사합니다.
 
 ## 8. 제약사항과 Git 보호
 
@@ -365,6 +367,23 @@ git push origin BRANCH_NAME
 
 ## 9. AI가 작업을 시작·재개하는 순서
 
+작업 규칙은 `AGENTS.md`, 검토 기준은 `docs/REVIEWS.md`, 실행 규약은 [docs/SUBAGENTS.md](docs/SUBAGENTS.md)에 있습니다. `.codex/agents/`에는 Codex용 서브에이전트 정의 4개가 있습니다.
+
+| 에이전트 | 역할 |
+| --- | --- |
+| `job-market-analyst` | JD·목적 분석과 확인된 경력 연결 |
+| `resume-writer` | 원본 statements 선택·배치와 수정 제안 |
+| `verifier` | 근거·수치·기여·과장 여부 독립 검토 |
+| `feedback-coach` | 직무 관련성·자연스러움·맞춤법·기밀 독립 검토 |
+
+총괄이 **분석 → 작성 → 코드 검증 → 두 독립 리뷰 → 결과 취합 → 사용자 승인** 순서로 호출합니다. 서브에이전트는 결과만 반환하고 총괄만 파일을 저장합니다. 검토자에게 부모 작성 대화나 서로의 판정을 전달하지 않으며 동일한 원본·이력서 버전으로 검토합니다. 수정은 최대 2회이며 CLI repair 재생성도 이 한도에 포함합니다. 수정하면 코드 검사와 두 리뷰를 다시 수행합니다.
+
+프로젝트 루트를 작업 폴더로 사용하는 지원 Codex 세션에서 역할을 로딩해야 합니다. 모델 설정은 부모를 상속합니다. 웹이나 `npm run career`가 직접 에이전트를 실행하는 방식은 아니며 총괄의 호출 도구가 실행합니다. 도구가 역할 이름을 선택하지 못하면 정의의 지침을 명시적으로 전달하는 새 문맥 호출을 사용하고 그 방식을 기록합니다. 실제 실행 또는 새 문맥을 확보하지 못하면 독립 검토를 중단합니다.
+
+예시 요청: “AGENTS.md와 docs/SUBAGENTS.md를 따라 main-sample을 verifier와 feedback-coach로 독립 검토해 줘. 원본·리뷰·승인 파일은 변경하지 말고 두 결과와 대상 해시를 보고해 줘.”
+
+역할 파일은 쉘·앱·플러그인·메모리·권한 요청 기능을 제한합니다. 부모 권한을 상속하므로 별도 OS 격리나 사람 인증을 제공하지는 않습니다. 독립 리뷰 결과도 최종 사용자 승인을 대체하지 않습니다.
+
 1. README를 읽고 사용자 요청을 실행/경력 작성/기능 수정 중 무엇인지 파악한다. 이미 알려진 내용을 다시 묻지 않는다.
 2. `npm run worklog:init`으로 `.local/WORK_LOG.md`를 준비한다. 있으면 덮어쓰지 않고 읽는다. 없으면 빈 양식에서 시작하며 과거 대화를 추측하지 않는다.
 3. 기존 변경과 실제 파일 상태를 확인하고 작업 순서·완료 조건을 기록한다. 한 단계마다 체크하고 변경 파일·검증 결과·남은 작업·다음 명령을 적는다.
@@ -380,7 +399,7 @@ git push origin BRANCH_NAME
 
 ## 10. 개인 작업 기록의 저장과 공유
 
-공개하는 것은 README, AGENTS, 현재 설계, 리뷰 기준, **빈** `templates/work-log.md`입니다. 실제 작업 기록·개인 계획·승인 대화·실행 로그는 `.local/`에만 둡니다. `.local/`, 구버전 `WORK_LOG.md`/`WORK_LOG.*.md`, `.env`, `dist/`, `.astro/`는 Git 제외 대상입니다. 설치된 Git Hook은 강제로 staged한 로컬 기록도 차단합니다.
+공개하는 것은 README, AGENTS, 현재 설계, 리뷰 기준, **빈** `templates/work-log.md`입니다. 실제 작업 기록·개인 계획·승인 대화·실행 로그는 `.local/`에만 둡니다. `.local/`, `WORK_LOG.md`/`WORK_LOG.*.md`, `.env`, `dist/`, `.astro/`는 Git 제외 대상입니다. 설치된 Git Hook은 강제로 staged한 로컬 기록도 차단합니다. 공개 설명 문서는 현재 구조와 사용법을 기준으로 유지하며 변경 이력이나 폐기된 구조 안내를 포함하지 않습니다.
 
 이미 Git이 추적 중인 기록은 gitignore만 추가해도 제외되지 않습니다. `git ls-files`로 확인하고 해당 파일만 명시해 `git rm --cached -- 파일경로`로 추적을 해제합니다(로컬 파일은 보존). 과거 커밋의 개인정보는 별도 이력 정리가 필요하므로 원격 push 전에 검토해야 합니다. 이 도구는 과거 이력을 자동 재작성하지 않습니다.
 
@@ -415,7 +434,7 @@ npm run secrets
 - 실제 데이터가 안 보임: `content/career/verified/`와 `content/applications/` 위치, 프로젝트 루트 실행 여부를 확인합니다.
 - 자료 추가 후 화면이 안 바뀜: 페이지를 새로고침합니다. 새 항목의 스키마·ID·파일 위치도 확인합니다.
 - 404: 실제 ID/slug와 폴더명이 맞는지 확인합니다. draft에는 다운로드할 이력서가 없습니다.
-- 승인 만료: 사용한 원본이 바뀌면 source-approve부터, JD/전략/이력서 변경이면 새 리뷰·digest 확인·사람 승인이 필요합니다. 이 안전장치 도입 이전의 리뷰·승인도 새 해시로 재검토해야 합니다.
+- 승인 만료: 사용한 원본이 바뀌면 source-approve부터, JD/전략/이력서 변경이면 새 리뷰·digest 확인·사람 승인이 필요합니다.
 - Secret 검사가 실패함: 값 자체를 로그에 붙이지 말고 파일 위치와 원인을 확인합니다. 실제 환경 파일은 커밋하지 않습니다.
 
 설계 계약은 `docs/PLAN.md`, 상세 리뷰 기준은 `docs/REVIEWS.md`에 있습니다. 이 파일들은 사용법을 보충하며 실행을 위해 과거 대화나 개인 작업 기록을 요구하지 않습니다.

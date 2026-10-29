@@ -70,7 +70,7 @@ test('README CLI 예제가 단일 데이터 경로로 생성·검증된다', t =
   assert.equal(override, '5432');
 });
 test('공유 소스에는 사용자 홈 절대 경로가 없다', () => {
-  const excluded = new Set(['node_modules', '.git', '.local', '.astro', 'dist', 'coverage']);
+  const excluded = new Set(['node_modules', '.git', '.local', '.astro', '.idea', 'dist', 'coverage']);
   const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {
     if (excluded.has(e.name) || e.isSymbolicLink() || /^\.env(?:\.|$)/.test(e.name) && e.name !== '.env.example') return [];
     const file = path.join(dir, e.name);
