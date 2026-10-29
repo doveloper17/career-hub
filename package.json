@@ -13,10 +13,11 @@
     "test": "node scripts/test-runner.mjs",
     "test:live": "npm run build && node scripts/test-runner.mjs --live",
     "career": "node --env-file-if-exists=.env scripts/cli.mjs",
+    "agents": "node scripts/agents.mjs",
     "worklog:init": "node scripts/init-worklog.mjs",
     "secrets": "node scripts/secrets.mjs",
     "hooks:install": "node scripts/install-hooks.mjs"
   },
-  "dependencies": { "@astrojs/node": "^11.1.9", "astro": "^7.4.2", "gray-matter": "^4.0.3", "zod": "^4.6.7", "marked": "^15.0.0", "sanitize-html": "^2.14.0" },
+  "dependencies": { "@astrojs/node": "^11.1.9", "astro": "^7.4.2", "gray-matter": "^4.0.3", "zod": "^4.6.7", "marked": "^15.0.0", "sanitize-html": "^2.14.0", "smol-toml": "^1.9.1" },
   "devDependencies": { "@astrojs/check": "^0.9.4", "typescript": "^5.7.0", "@types/sanitize-html": "^2.13.0" }
 }

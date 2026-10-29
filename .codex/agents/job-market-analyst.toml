@@ -1,4 +1,9 @@
 name = "job-market-analyst"
+# 모델 변경은 아래 model 값만 수정하세요. 계정에서 지원하는 Codex 모델 ID를 사용합니다.
+# 추론 강도는 model_reasoning_effort를 변경합니다. 높일수록 시간·토큰 사용이 늘 수 있습니다.
+# 격리 runner도 이 값을 사용하며, CLI --model은 해당 실행의 모델만 우선 변경합니다.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
 description = "JD 요구사항을 확인된 경력과 연결하고 근거 부족을 식별하는 분석 담당. 이력서 작성 전에 사용한다."
 developer_instructions = """
 당신은 Career Hub의 job-market-analyst다. 부모 대화가 아닌 전달된 작업 패킷만 기준으로 분석한다.
