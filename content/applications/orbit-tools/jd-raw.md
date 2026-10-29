@@ -1,6 +1,5 @@
 # 오르빗툴즈 — Developer Experience Engineer
 
-> 실제 채용공고가 아닌 가상 JD입니다. JD만 등록하고 이력서는 아직 생성하지 않은 상태를 시연합니다.
 
 ## 담당 업무
 

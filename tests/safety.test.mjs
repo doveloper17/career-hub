@@ -15,8 +15,7 @@ function fixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.cpSync('content/career', path.join(root, 'content/career'), { recursive: true });
   const file = path.join(root, 'content/career/verified/companies/morrow.md');
-  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('fictional: true', 'fictional: false'));
-  const meta = { id: 'real', company: '테스트 회사', position: '개발자', fictional: false, keywords: ['Kotlin'], createdAt: '2026-10-29', deadline: null, jdUrl: null };
+  const meta = { id: 'real', company: '테스트 회사', position: '개발자', keywords: ['Kotlin'], createdAt: '2026-10-29', deadline: null, jdUrl: null };
   createApplication(meta, '테스트 JD', root);
   const source = () => careers(root).find(c => c.id === 'EXP-MORROW-001');
   const confirm = () => confirmSource(source().id, '테스트 승인자', sourceDigest(source()), root);
@@ -27,7 +26,7 @@ function reviewAndApprove(root) {
   recordReview('real', { reviewer: '테스트 검토자', verdict: 'PASS', checks, notes: '실제 검토가 아닌 회귀 테스트' }, root);
   approve('real', '테스트 승인자', root, digest('real', root));
 }
-test('verified와 confirmedBy만 지정한 실제 원본은 사용 불가, 해시 확인 후만 사용', t => {
+test('verified와 confirmedBy만 지정한 원본은 사용 불가, 해시 확인 후만 사용', t => {
   const f = fixture(t);
   assert.equal(sourceStatus(f.source(), f.root).usable, false);
   assert.equal(generate('real', f.root).status, 'needs_human_input');
@@ -45,7 +44,7 @@ test('원본 변경·승인 기록 삭제는 검증과 제출을 차단한다', 
   assert.equal(verify('real', f.root).passed, false);
   assert.throws(() => submissionText('real', f.root), /제출 차단/);
   fs.writeFileSync(f.file, before);
-  fs.unlinkSync(path.join(f.root, '.local/source-approvals/EXP-MORROW-001.json'));
+  fs.unlinkSync(path.join(f.root, 'content/source-approvals/EXP-MORROW-001.json'));
   assert.equal(submissionState('real', f.root).approved, false);
 });
 test('승인한 경력도 private이면 생성과 제출에 사용할 수 없다', t => {
@@ -91,14 +90,17 @@ test('최종 승인에는 확인한 현재 digest를 명시해야 하며 본문 
   assert.equal(submissionState('real', f.root).status, 'verification_failed');
   assert.throws(() => snapshot('real', f.root), /승인/);
 });
-test('검증되고 승인된 가상 샘플도 실제 제출용 다운로드는 차단', t => {
+test('모든 이력서는 동일한 원본 확인·리뷰·최종 승인 후 다운로드한다', t => {
   const f = fixture(t);
-  createApplication({ id: 'sample', company: '가상', position: '개발자', fictional: true, keywords: ['TypeScript'], createdAt: '2026-10-29', deadline: null, jdUrl: null }, '가상 JD', f.root);
+  const project = careers(f.root).find(c => c.id === 'EXP-TINY-001');
+  confirmSource(project.id, '테스트 확인자', sourceDigest(project), f.root);
+  createApplication({ id: 'sample', company: '가상', position: '개발자', keywords: ['TypeScript'], createdAt: '2026-10-29', deadline: null, jdUrl: null }, '가상 JD', f.root);
   generate('sample', f.root);
   recordReview('sample', { reviewer: '테스트', verdict: 'PASS', checks, notes: '테스트' }, f.root);
   approve('sample', '사람', f.root, digest('sample', f.root));
   assert.equal(submissionState('sample', f.root).approved, true);
-  assert.throws(() => submissionText('sample', f.root), /제출 차단/);
+  assert.equal(submissionState('sample', f.root).downloadable, true);
+  assert.match(submissionText('sample', f.root), /TypeScript/);
 });
 test('일부 파일 저장 실패는 원래 파일로 복구하고 쓰기 잠금을 해제한다', t => {
   const f = fixture(t);

@@ -6,6 +6,29 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { isLocalOnlyPath } from '../lib/repository-policy.mjs';
 import { assertTemplateData } from '../lib/template-policy.mjs';
+import { careers } from '../lib/store.mjs';
+import { sourceStatus } from '../lib/source-approval.mjs';
+import { verify, submissionState, validateAll } from '../lib/workflow.mjs';
+
+test('기본 콘텐츠는 확인 기록과 함께 복제되며 최종 승인은 별도다', t => {
+  const root = fixture(t);
+  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  assert.ok(careers(root).every(c => sourceStatus(c, root).usable));
+  assert.equal(verify('main-sample', root).passed, true);
+  assert.equal(submissionState('main-sample', root).approved, false);
+  assert.equal(submissionState('main-sample', root).downloadable, false);
+  assert.deepEqual(validateAll(root).errors, []);
+});
+test('확인이 만료된 초안도 조회·빌드할 수 있지만 리뷰·다운로드는 잠긴다', t => {
+  const root = fixture(t);
+  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  fs.appendFileSync(path.join(root, 'content/career/verified/companies/morrow.md'), '\n추가 확인이 필요한 기록');
+  assert.deepEqual(validateAll(root).errors, []);
+  assert.equal(verify('northstar-backend', root).passed, false);
+  assert.equal(submissionState('northstar-backend', root).downloadable, false);
+  fs.appendFileSync(path.join(root, 'content/applications/northstar-backend/resume.md'), '\n출처에 없는 성과');
+  assert.notDeepEqual(validateAll(root).errors, []);
+});
 
 test('공개 데이터는 등록된 샘플만 허용하고 수정·추가된 개인 자료는 차단한다', () => {
   const manifest = JSON.parse(fs.readFileSync('template-data.json', 'utf8'));
@@ -63,7 +86,7 @@ test('README CLI 예제가 단일 데이터 경로로 생성·검증된다', t =
   const env = { ...process.env };
   delete env.PORT;
   const run = args => JSON.parse(execFileSync(process.execPath, ['--env-file-if-exists=.env', path.resolve('scripts/cli.mjs'), ...args], { cwd: root, env, encoding: 'utf8' }));
-  assert.equal(run(['new', '--id', 'tutorial-backend', '--company', '튜토리얼 가상 회사', '--position', 'Backend Engineer', '--jd', path.resolve('templates/jd.md'), '--keywords', 'Kotlin,MySQL', '--fictional']).status, 'draft');
+  assert.equal(run(['new', '--id', 'tutorial-backend', '--company', '튜토리얼 가상 회사', '--position', 'Backend Engineer', '--jd', path.resolve('templates/jd.md'), '--keywords', 'Kotlin,MySQL']).status, 'draft');
   assert.equal(run(['generate', 'tutorial-backend']).status, 'awaiting_human_approval');
   assert.equal(run(['verify', 'tutorial-backend']).passed, true);
   const override = execFileSync(process.execPath, ['--env-file-if-exists=.env', '-e', 'process.stdout.write(process.env.PORT)'], { cwd: root, env: { ...env, PORT: '5432' }, encoding: 'utf8' });

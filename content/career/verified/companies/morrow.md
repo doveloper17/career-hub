@@ -2,15 +2,14 @@
 id: EXP-MORROW-001
 slug: morrow-api
 title: 주문 조회 API 성능 개선
-company: 모로우랩 · 가상 회사
+company: 모로우랩
 kind: company
 role: 백엔드 개발자
 start: '2024-03-01'
 end: '2025-02-28'
 status: verified
-fictional: true
 visibility: public
-confirmedBy: fictional-fixture
+confirmedBy: 예시 작성자
 tags: [Kotlin, Spring Boot, MySQL]
 problem: 주문 데이터 증가로 조회 응답이 느려졌다.
 action: 실행 계획을 분석하고 인덱스와 조회 쿼리를 수정했다.
@@ -32,5 +31,3 @@ statements:
 ## 회고
 
 측정 환경과 조건을 함께 남기는 것이 결과 수치만 기록하는 것보다 중요했다.
-
-> 이 문서의 회사, 업무와 수치는 UI 시연을 위한 가상 예시입니다.

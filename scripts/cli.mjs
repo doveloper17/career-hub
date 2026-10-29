@@ -7,11 +7,11 @@ import { careers } from '../lib/store.mjs';
 import { confirmSource, sourceDigest, sourceStatus } from '../lib/source-approval.mjs';
 import { recover } from '../lib/transaction.mjs';
 
-const { values: v, positionals: p } = parseArgs({ allowPositionals: true, options: Object.fromEntries(['digest','title','id','company','position','jd','keywords','url','deadline','reviewer','notes','by'].map(k => [k,{ type: 'string' }]).concat(['fictional','confirm','hiring','naturalness','spelling','confidentiality','fail'].map(k => [k,{ type:'boolean' }]))) });
+const { values: v, positionals: p } = parseArgs({ allowPositionals: true, options: Object.fromEntries(['digest','title','id','company','position','jd','keywords','url','deadline','reviewer','notes','by'].map(k => [k,{ type: 'string' }]).concat(['confirm','hiring','naturalness','spelling','confidentiality','fail'].map(k => [k,{ type:'boolean' }]))) });
 const [command, id] = p;
 try {
   let result;
-  if (command === 'new' || command === 'new-representative') result = createApplication({ id: v.id, ...(command === 'new-representative' ? { kind: 'representative', title: v.title } : {}), company: v.company || '', position: v.position || '', fictional: !!v.fictional, keywords: (v.keywords || '').split(',').map(s => s.trim()).filter(Boolean), createdAt: new Date().toISOString().slice(0, 10), deadline: v.deadline || null, jdUrl: v.url || null }, v.jd ? fs.readFileSync(v.jd, 'utf8') : '');
+  if (command === 'new' || command === 'new-representative') result = createApplication({ id: v.id, ...(command === 'new-representative' ? { kind: 'representative', title: v.title } : {}), company: v.company || '', position: v.position || '', keywords: (v.keywords || '').split(',').map(s => s.trim()).filter(Boolean), createdAt: new Date().toISOString().slice(0, 10), deadline: v.deadline || null, jdUrl: v.url || null }, v.jd ? fs.readFileSync(v.jd, 'utf8') : '');
   else if (command === 'generate') result = generate(id);
   else if (command === 'verify') { result = verifyAndRecord(id); if (!result.passed) process.exitCode = 1; }
   else if (command === 'repair') {
@@ -39,6 +39,6 @@ try {
   }
   else if (command === 'digest') result = digest(id);
   else if (command === 'validate') { result = validateAll(); if (result.errors.length) process.exitCode = 1; }
-  else result = '명령: new-representative --id --title [--company --position --jd --keywords --fictional] | new --id --company --position --jd --keywords [--fictional] | generate ID | verify ID | repair ID | review ID --reviewer --notes --hiring --naturalness --spelling --confidentiality | approve ID --by 이름 --digest 확인한해시 --confirm | snapshot ID --confirm | source-digest EXP-ID | source-approve EXP-ID --by 이름 --digest 확인한해시 --confirm | recover --confirm | validate';
+  else result = '명령: new-representative --id --title [--company --position --jd --keywords] | new --id --company --position --jd --keywords | generate ID | verify ID | repair ID | review ID --reviewer --notes --hiring --naturalness --spelling --confidentiality | approve ID --by 이름 --digest 확인한해시 --confirm | snapshot ID --confirm | source-digest EXP-ID | source-approve EXP-ID --by 이름 --digest 확인한해시 --confirm | recover --confirm | validate';
   console.log(JSON.stringify(result, null, 2));
 } catch (error) { console.error(error.message); process.exitCode = 1; }

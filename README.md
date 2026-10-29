@@ -6,7 +6,71 @@ Career Hub는 **확인된 경력 기록을 바탕으로 JD별 이력서를 만�
 
 회사별 업무, 개인 프로젝트, 스터디를 Markdown으로 기록하고 지원 회사/JD별 결과물을 따로 보관합니다. **경력 원본은 사실의 기준**, JD별 이력서는 그 사실을 선택하고 순서를 바꾼 결과입니다. JD 맞춤 전략을 경력 사실로 덮어쓰지 않습니다.
 
-공개 템플릿은 공통 코드와 `fictional: true`인 가상 예시만 포함합니다. 실제 경력을 관리할 때는 이 저장소를 clone한 뒤 독립 비공개 저장소로 연결합니다.
+메인 브랜치에는 공통 코드와 사용법을 보여주는 예시 콘텐츠가 들어 있습니다. 사용자는 저장소를 clone한 뒤 `content/`의 경력과 지원 자료를 본인 내용으로 교체해 같은 프로그램을 사용합니다. 콘텐츠 종류에 따른 실행 모드나 별도 구분 필드는 없습니다. 개인 자료를 Git에 보관하려면 독립 비공개 저장소로 연결하세요.
+
+기본 회사·경력·JD는 설명을 위해 만든 예시이며 본인의 경력으로 제출하면 안 됩니다. 예시 원본은 확인을 마쳤다고 가정한 해시 확인 기록을 함께 제공합니다. 프로그램은 모든 원본에 같은 확인 규칙을 적용하므로, 내용을 교체하면 예시 확인 기록은 만료되고 본인의 사실 확인이 필요합니다. 원본 확인과 최종 이력서 승인은 별개입니다.
+
+### 그림으로 보는 작업 흐름
+
+```mermaid
+flowchart TD
+    request["이력서 작성 요청"] --> target["총괄이 대상과 작업 순서 정리<br/>JD별 이력서 또는 대표 이력서"]
+    target --> lookup["기존 경력 원본·확인 기록 조회"]
+
+    subgraph facts["경력 관리 · 새 사실의 기록과 재사용"]
+        record["회사 업무·프로젝트·스터디 기록"] --> pending["미확인 정보와 질문을 pending에 저장"]
+        pending --> ask["사용자에게 부족한 부분만 질문"]
+        ask --> answer{"사실과 공개 범위가 확인됐나?"}
+        answer -- "아직 아님" --> wait["미확인 상태로 보관<br/>이력서 근거로 사용하지 않음"]
+        answer -- "확인됨" --> persist["총괄이 해당 경력 원본에 저장<br/>본문·기간·기여·결과·statements"]
+        persist --> receipt["현재 원본 해시의 확인 기록 갱신"]
+        receipt --> resolved["질문을 해결됨으로 표시<br/>반영한 경력 ID와 위치 기록"]
+    end
+
+    lookup --> known{"필요한 사실이 기록되어 있고<br/>현재 확인도 유효한가?"}
+    known -- "없음·충돌·만료" --> pending
+    known -- "있음 · 질문 없이 재사용" --> analyst
+    resolved -- "현재 작업 재개 · 다음 요청도 재사용" --> lookup
+
+    subgraph writing["분석 · 이력서 작성"]
+        analyst["JD 분석 에이전트<br/>요구사항과 확인된 경력 연결"]
+        analyst --> analysis["총괄이 분석 결과 확인·저장"]
+        analysis --> writer["작성 에이전트<br/>확인된 문장 선택·배치"]
+        writer --> draft["총괄이 초안과 문장별 출처 저장"]
+        draft --> verify{"코드 검증 통과?<br/>원본 확인·문장·출처·본문 일치"}
+    end
+
+    verify -- "통과" --> factual
+    verify -- "통과" --> quality
+    verify -- "실패" --> triage
+
+    subgraph reviews["같은 버전을 서로 독립적으로 검토"]
+        factual["사실 검증 에이전트<br/>수치·조건·기여·맥락 대조"]
+        quality["품질 리뷰 에이전트<br/>채용 관점·자연스러움·맞춤법·기밀"]
+        factual --> merge["총괄이 두 결과 취합"]
+        quality --> merge
+        merge --> passed{"두 PASS·필수 체크 충족<br/>검토한 문서 해시도 그대로인가?"}
+    end
+
+    passed -- "아니오" --> triage["총괄이 실패 이유와 수정 기준 정리"]
+    triage --> need{"새 사실이나 추가 확인이 필요한가?"}
+    need -- "예" --> lookup
+    need -- "아니오" --> limit{"자동 수정 2회 미만인가?"}
+    limit -- "예 · 횟수 기록" --> writer
+    limit -- "아니오" --> stop["자동 수정 중단<br/>사용자에게 이유와 선택지 전달"]
+
+    passed -- "예" --> reviewRecord["총괄이 현재 버전에 리뷰 결과 기록"]
+    reviewRecord --> human{"사용자가 최종 결과를 승인했나?"}
+    human -- "수정 요청" --> triage
+    human -- "승인 보류" --> hold["초안으로 보관"]
+    human -- "승인" --> approval["현재 문서 해시에 최종 승인 기록"]
+    approval --> download["승인본 다운로드"]
+    download --> snapshot["요청 시 버전 고정본 보관"]
+```
+
+총괄이 호출·저장을 맡고 서브에이전트는 결과만 반환합니다. [전체 흐름·에이전트별 역할·변경 시 재검토 그림](docs/WORKFLOW.md)에서 각 단계와 파일 위치를 자세히 확인할 수 있습니다.
+
+작업 중 새로 확인된 사실도 해당 경력 원본의 본문·구조화 필드·`statements`에 저장하고 원본 확인 기록을 갱신합니다. 해결된 질문은 `pending` 기록에 반영 위치를 남깁니다. 다음 JD나 다른 채팅에서는 이 원본과 확인 기록부터 조회하여 이미 유효하게 확인된 사실을 반복 질문하지 않습니다. 답변을 대화나 작업 로그에만 남기지 않으며, JD별 강조 전략은 경력 사실과 분리해 보관합니다.
 
 현재 제공하는 기능:
 
@@ -33,7 +97,7 @@ npm run dev
 
 터미널에 표시된 주소(기본 `http://127.0.0.1:4321`)를 엽니다. Windows PowerShell에서 `npm.ps1` 실행 정책 오류가 발생하면 실행 정책을 변경하지 말고 명령의 `npm`을 `npm.cmd`로 바꾸세요.
 
-샘플에는 가상 회사 경력, 개인 프로젝트, 스터디와 작성 전/검토 대기 지원 건이 있습니다. 요약 카드 수치는 파일에서 계산합니다. ‘지원별 이력서’는 생성 전 초안도 포함하고 ‘검토 대기’는 `awaiting_human_approval` 상태만 셉니다.
+기본 콘텐츠에는 회사 경력, 개인 프로젝트, 스터디와 작성 전/검토 대기 지원 건이 있습니다. 원본 확인은 완료된 것으로 구성되어 클론 직후 생성·검증 흐름을 실행할 수 있습니다. 품질 리뷰와 최종 승인은 별도로 진행합니다. 요약 카드 수치는 파일에서 계산합니다. ‘지원별 이력서’는 생성 전 초안도 포함하고 ‘검토 대기’는 `awaiting_human_approval` 상태만 셉니다.
 
 Node 서버용 빌드 실행:
 
@@ -124,13 +188,14 @@ set "PORT="
 ├── .codex/agents/             # Codex 서브에이전트 4개 역할 정의
 ├── docs/
 │   ├── PLAN.md                # 현재 설계 계약
+│   ├── WORKFLOW.md            # 경력 관리·이력서 작성·재검토 흐름도
 │   ├── SUBAGENTS.md           # 호출 흐름·입출력·독립 검토·재시도 규약
 │   └── REVIEWS.md             # 검토 관점과 반환 기준
 ├── lib/
 │   ├── schema.mjs             # Zod 경력·지원·출처·리뷰 스키마
 │   ├── store.mjs              # 단일 경로 파일 조회, ID/경로 검증
 │   ├── workflow.mjs           # 생성·검증·리뷰·승인·스냅샷
-│   ├── source-approval.mjs    # 실제 원본 확인 기록·해시 검사
+│   ├── source-approval.mjs    # 원본 확인 기록·해시 검사
 │   ├── transaction.mjs        # 저장 잠금·백업·복구
 │   └── repository-policy.mjs  # 로컬 기록의 Git 차단 정책
 ├── src/
@@ -142,12 +207,13 @@ set "PORT="
 ├── content/
 │   ├── career/verified/       # companies, projects, studies의 Markdown
 │   ├── career/pending/        # 생성에 사용하지 않는 확인 대기 자료
+│   ├── source-approvals/      # 원본별 현재 확인자·시각·해시
 │   └── applications/          # 지원 ID별 JD·이력서·출처·리뷰
 ├── scripts/                   # CLI, 검사, Git 보호, OS 독립 실행 도구
 ├── tests/                     # 단위/통합 검사, integration의 서버 회귀 검사
 ├── templates/                 # 가상 JD와 빈 work-log.md
 ├── .githooks/                 # pre-commit, pre-push (설치 필요)
-├── .local/                    # 개인 작업 기록·로컬 승인·과거 계획 (Git 제외)
+├── .local/                    # 개인 작업 기록·모델 실행 로그·push 승인 (Git 제외)
 ├── .env.example               # 공유 가능한 환경 변수 예시
 ├── repository.json            # public-template 또는 private Git 정책
 ├── template-data.json         # 공개 허용 샘플의 상대 경로와 SHA-256
@@ -167,15 +233,14 @@ set "PORT="
 id: EXP-DEMO-001
 slug: sample-automation
 title: 반복 점검 자동화
-company: 예시회사 · 가상 회사
+company: 예시회사
 kind: company
 role: 개발자
 start: '2024-01-01'
 end: null
 status: verified
-fictional: true
 visibility: public
-confirmedBy: fictional-fixture
+confirmedBy: 확인자
 tags: [TypeScript]
 problem: 같은 점검 작업을 반복했다.
 action: 점검 스크립트를 작성했다.
@@ -188,9 +253,9 @@ statements:
 
 이후 Markdown 본문에 문제·접근·결과·회고를 자세히 씁니다. `kind`는 `company/project/study`, `visibility`는 `public/private`입니다. 기간은 유효한 날짜, 진행 중 종료일은 `null`입니다. 기술 태그와 `statements`는 최소 하나가 필요합니다. ID와 slug는 각각 중복될 수 없습니다.
 
-실제 경력은 `fictional: false`와 실제 확인자를 사용하고 `content/career/verified/`에만 저장합니다. `visibility: public`은 공개 가능성에 대한 정보이지 자동 게시 허가가 아닙니다. 웹은 저장소의 모든 verified 자료를 읽으므로 외부 공개하지 않습니다.
+확인한 경력은 확인자를 기입하고 `content/career/verified/`에 저장합니다. `visibility: public`은 공개 가능성에 대한 정보이지 자동 게시 허가가 아닙니다. 웹은 저장소의 모든 verified 자료를 읽으므로 외부 공개하지 않습니다.
 
-### 실제 경력의 원본 확인
+### 경력의 원본 확인
 
 `verified` 폴더와 `confirmedBy` 표기만으로 실제 이력서에 사용하지 않습니다. 사람이 경력 원문과 수치·기간·기여 범위·공개 가능성을 확인한 뒤 아래 절차를 진행합니다.
 
@@ -199,9 +264,9 @@ npm run career -- source-digest EXP-YOUR-001
 npm run career -- source-approve EXP-YOUR-001 --by "실제 확인자" --digest "직접 확인한 해시" --confirm
 ```
 
-ID와 해시 자리표시자를 실제 값으로 바꾸세요. 원본 확인 기록은 `.local/source-approvals/`에 저장되어 Git에 올라가지 않습니다. 다른 PC에서 clone하면 이 기록이 없으므로 실제 원본을 다시 확인해야 합니다. 기존 경력을 자동으로 승인하지 않습니다. 원본의 문장·기간·본문 등을 바꾸면 확인 기록이 만료됩니다.
+ID와 해시 자리표시자를 실제 값으로 바꾸세요. 원본 확인 기록은 `content/source-approvals/ID.json`에 저장되고 콘텐츠와 함께 관리합니다. 확인 기록이 포함된 저장소를 다른 PC에서 clone해도 같은 원본 해시에 대해서만 유효합니다. 기본 예시는 이 기록을 포함하지만, 본인 내용으로 바꾸면 문장·기간·본문 변경이 감지되어 만료됩니다. 본인 기록의 확인자는 실제 확인한 사람으로 지정하며 확인 없이 해시만 갱신하지 않습니다. 개인 작업 일지·대화·모델 실행 로그는 `.local/`에 두어 Git에서 제외합니다.
 
-생성에는 **public 경력만** 사용합니다. private 경력은 승인 기록이 있어도 제외합니다. 기밀을 제거한 공개 가능 표현은 별도 경력으로 정리하고 사람이 확인하세요. 검사를 통과하려고 private을 임의로 public으로 바꾸지 않습니다. fictional 자료의 예제 실행에는 원본 확인 기록이 필요 없지만 실제 제출용 다운로드는 차단됩니다.
+생성에는 **현재 확인 기록이 유효한 public 경력만** 사용합니다. private 경력은 승인 기록이 있어도 제외합니다. 기밀을 제거한 공개 가능 표현은 별도 경력으로 정리하고 사람이 확인하세요. 검사를 통과하려고 private을 임의로 public으로 바꾸지 않습니다. 이 규칙은 모든 콘텐츠에 동일하게 적용합니다.
 
 ## 6. 이력서가 만들어지는 샘플
 
@@ -212,7 +277,7 @@ ID와 해시 자리표시자를 실제 값으로 바꾸세요. 원본 확인 기
 기존 샘플 경력에서 Kotlin과 MySQL 경험을 선택하는 지원 건을 만듭니다. 아래 명령은 macOS와 Windows에서 동일합니다. ID가 이미 있으면 덮어쓰지 않으므로 새 ID를 사용하세요.
 
 ```text
-npm run career -- new --id tutorial-backend --company "튜토리얼 가상 회사" --position "Backend Engineer" --jd templates/jd.md --keywords "Kotlin,MySQL" --fictional
+npm run career -- new --id tutorial-backend --company "튜토리얼 회사" --position "Backend Engineer" --jd templates/jd.md --keywords "Kotlin,MySQL"
 npm run career -- generate tutorial-backend
 npm run career -- verify tutorial-backend
 ```
@@ -221,7 +286,7 @@ npm run career -- verify tutorial-backend
 
 1. JD 원문과 회사·포지션·키워드를 저장한다 (`draft`).
 2. 키워드를 경력 제목·태그·statements와 비교한다. 키워드 일치 수, 최근 경력 순으로 정렬한다.
-3. 현재 원본 확인 기록이 유효하고 공개 가능한 경력의 statements를 그대로 사용하고 출처 ID를 연결한다. 가상 예제는 실제 제출과 분리한다.
+3. 현재 원본 확인 기록이 유효하고 공개 가능한 경력의 statements를 그대로 사용하고 출처 ID를 연결한다.
 4. 선택 경력이 있고 모든 입력 키워드에 근거가 있으면 `awaiting_human_approval`, 아니면 `needs_human_input`이 된다.
 5. 문장과 출처·이력서 본문의 일치를 검증한다. 검토 대기는 품질 리뷰를 통과했다는 뜻이 아니다.
 
@@ -240,7 +305,7 @@ content/applications/tutorial-backend/
 └── fact-review.json    # verify 실행 결과
 ```
 
-브라우저의 `/applications/`를 새로고침하고 새 지원 건을 엽니다. 근거는 `/compare/`에서 대조합니다. 실제 JD에는 `--fictional`을 붙이지 않습니다. 생성·검증은 지원 건과 `fictional` 값이 같은 경력만 사용하므로 가상 경력이 실제 이력서에 섞이지 않습니다. 선택 입력인 `--url`은 HTTP(S) URL, `--deadline`은 날짜입니다.
+브라우저의 `/applications/`를 새로고침하고 새 지원 건을 엽니다. 근거는 `/compare/`에서 대조합니다. 본인 콘텐츠로 교체한 뒤에도 동일한 명령과 경로를 사용합니다. 선택 입력인 `--url`은 HTTP(S) URL, `--deadline`은 날짜입니다.
 
 ### 6.2 실패와 수정
 
@@ -286,7 +351,9 @@ npm run career -- snapshot tutorial-backend --confirm
 
 ### 6.5 검토 화면과 제출용 다운로드의 차이
 
-검토 화면에서는 미승인 초안도 읽을 수 있으며 초안·샘플 경고를 표시합니다. **승인본 다운로드**는 실제 이력서이면서 현재 원본 검사·모든 항목 PASS 리뷰·최종 승인이 유효할 때만 가능합니다. URL을 직접 입력해도 같은 검사를 거치며 실패하면 403, 저장 중/복구 대기에는 503으로 차단할 수 있습니다. 가상 샘플은 검토·로컬 고정본 연습만 가능하고 실제 제출 다운로드는 불가능합니다.
+검토 화면에서는 미승인 초안도 읽을 수 있으며 승인 전에는 다운로드 잠금 안내를 표시합니다. **승인본 다운로드**는 현재 원본 검사·모든 항목 PASS 리뷰·최종 승인이 유효할 때만 가능합니다. URL을 직접 입력해도 같은 검사를 거치며 실패하면 403, 저장 중/복구 대기에는 503으로 차단할 수 있습니다. 기본 예시도 같은 절차를 거치며 원본 확인 기록만으로 최종 승인되지 않습니다.
+
+`npm run career -- validate`와 빌드는 자료 형식·문장·출처 연결을 검사하며 원본 확인 전 초안도 조회할 수 있게 합니다. 제출 가능한지는 별도 `verify`·리뷰·최종 승인 검사로 판단합니다. 빌드 성공은 제출 승인이 아닙니다.
 
 검증은 원본의 진실성을 입증하지 않습니다. 원본 승인 해시는 변경 감지용이며 승인자 인증이나 전자서명이 아닙니다. 동일 OS 권한으로 코드·파일·승인 명령을 변경하는 사람/에이전트까지 막으려면 별도 계정·권한 또는 외부 승인 서비스가 필요합니다. 화면 복사나 원본 파일 직접 전송도 이 다운로드 검사로 막을 수 없습니다.
 
@@ -296,17 +363,17 @@ npm run career -- snapshot tutorial-backend --confirm
 
 왼쪽 **대표 이력서** 메뉴에서 특정 지원 건과 별개로 나를 소개하는 이력서를 관리합니다. 제목은 필수이며 회사·포지션·JD·키워드는 각각 선택 사항입니다. 여러 제목/버전을 별도 ID로 보관할 수 있습니다.
 
-가상 샘플로 작성:
+대표 이력서 작성:
 
 ```text
-npm run career -- new-representative --id my-main --title "나의 대표 이력서" --fictional
+npm run career -- new-representative --id my-main --title "나의 대표 이력서"
 npm run career -- generate my-main
 npm run career -- verify my-main
 ```
 
-실제 자료에는 `--fictional`을 제외합니다. 필요한 경우 생성 명령에 `--company "대상 회사"`, `--position "희망 직무"`, `--jd JD파일경로`, `--keywords "Kotlin,MySQL"`을 선택적으로 붙입니다. JD만 연결해도 자동으로 키워드를 추론하지 않으므로 경력 선택을 좁히려면 키워드를 함께 지정합니다.
+필요한 경우 생성 명령에 `--company "대상 회사"`, `--position "희망 직무"`, `--jd JD파일경로`, `--keywords "Kotlin,MySQL"`을 선택적으로 붙입니다. JD만 연결해도 자동으로 키워드를 추론하지 않으므로 경력 선택을 좁히려면 키워드를 함께 지정합니다.
 
-키워드가 없으면 같은 fictional 구분의 사용 가능한 public 경력(실제 경력은 현재 원본 승인 필요)을 최신순으로, 있으면 일치하는 경력을 우선순위대로 선택합니다. 근거가 없으면 사람 확인이 필요한 상태로 남습니다. 리뷰·승인·고정본 명령은 일반 이력서와 같습니다.
+키워드가 없으면 현재 원본 확인이 유효한 public 경력을 최신순으로, 있으면 일치하는 경력을 우선순위대로 선택합니다. 근거가 없으면 사람 확인이 필요한 상태로 남습니다. 리뷰·승인·고정본 명령은 일반 이력서와 같습니다.
 
 저장은 공통 `content/applications/ID/` 구조를 사용하며 metadata의 `kind: "representative"`와 `title`로 구분합니다. `kind`를 생략하면 일반 지원으로 처리합니다. JD 없는 대표 이력서는 빈 `jd-raw.md`를 보관합니다. 상세·다운로드는 공통 `/applications/ID/` 경로를 사용합니다. 대표 이력서는 지원 목록/대시보드 지원 건수에서 제외되지만 출처 비교·Git 승인 검사는 동일하게 적용됩니다. 회사·JD·제목·원본 변경 시 승인은 만료됩니다.
 
@@ -331,8 +398,8 @@ git remote add origin PRIVATE_REPOSITORY_URL
 1. `origin`의 실제 공개 범위가 비공개인지 확인하고 `npm run hooks:install`을 실행합니다.
 2. `repository.json`을 `{ "mode": "private" }`로 설정해 비공개 저장소용 **Git 보호 정책**을 적용합니다. 이 설정 자체가 GitHub 저장소의 공개 범위를 변경하지는 않습니다.
 3. 기존 가상 경력과 지원 폴더를 검토해 필요한 예시는 저장소 밖에 보관한 뒤 제거합니다. 원본 경력만 지우고 연결된 샘플 지원을 남기면 출처 검증이 실패하므로 함께 정리합니다. 실제 사용자 자료를 일괄 삭제하지 않습니다.
-4. `content/career/pending/`에 본인의 회사별 업무·프로젝트·스터디를 정리하고 사람이 확인한 내용만 `verified/`에 등록합니다. 실제 기록은 `fictional: false`, 실제 확인자, 적절한 공개 범위를 사용합니다. 샘플의 수치나 회사 이름만 바꾸어 자신의 사실로 간주하지 않습니다.
-5. 본인 JD로 새 지원 ID를 생성하고 검증·리뷰·사람 승인 절차를 진행합니다. 기존 샘플의 승인과 결과물을 재사용하지 않습니다.
+4. `content/career/pending/`에 본인의 회사별 업무·프로젝트·스터디를 정리하고 사람이 확인한 내용만 `verified/`에 등록합니다. 본인의 확인자와 공개 범위를 기입하고 `source-digest` → `source-approve`로 변경한 원본을 확인합니다. 예시의 수치나 회사 이름만 바꾸어 자신의 사실로 간주하지 않습니다. 사용하지 않는 예시 원본의 확인 기록도 함께 정리합니다.
+5. 본인 JD로 새 지원 ID를 생성하고 검증·리뷰·사람 승인 절차를 진행합니다. 본인 원본으로 바꾸면 예시 확인 기록은 자동 만료됩니다. 기존 예시의 최종 승인이나 결과물을 본인의 것으로 사용하지 않습니다.
 6. 브라우저를 새로고침해 확인합니다. 데이터가 없으면 빈 목록으로 표시하며 샘플로 대체하지 않습니다.
 
 `content/`는 비공개 저장소에서 이력을 버전 관리하므로 전체 gitignore 대상이 아닙니다. 공개 템플릿 정책에서는 Git Hook이 `template-data.json`에 등록된 가상 샘플의 경로와 SHA-256을 Git blob과 대조하여 미등록·변경된 데이터 파일을 차단합니다. 공유할 샘플을 추가·수정하는 템플릿 관리자는 내용이 가상임을 검토한 뒤 해당 상대 경로와 파일 바이트의 SHA-256도 갱신합니다. 개인 자료를 허용하려고 이 목록에 등록하지 마세요. 이 검사는 개인정보 자동 판별을 보장하지 않으므로 diff와 원격 공개 범위를 반드시 직접 확인하세요.

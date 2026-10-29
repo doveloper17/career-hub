@@ -2,15 +2,14 @@
 id: EXP-FOLIO-001
 slug: folio-release
 title: 배포 확인 절차 자동화
-company: 폴리오웍스 · 가상 회사
+company: 폴리오웍스
 kind: company
 role: 소프트웨어 엔지니어
 start: '2022-07-01'
 end: '2024-02-29'
 status: verified
-fictional: true
 visibility: public
-confirmedBy: fictional-fixture
+confirmedBy: 예시 작성자
 tags: [TypeScript, Node.js, CI/CD]
 problem: 배포 전 동일한 확인 작업을 수동으로 반복했다.
 action: 배포 체크리스트와 API 스모크 테스트를 자동화했다.
@@ -28,5 +27,3 @@ statements:
 ## 배운 점
 
 자동화한 범위와 사람이 확인해야 하는 범위를 문서로 구분했다.
-
-> 실제 사용자의 경력이 아닌 가상 데이터입니다.

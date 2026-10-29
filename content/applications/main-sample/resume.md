@@ -1,4 +1,4 @@
-# 대표 이력서 · 가상 샘플
+# 대표 이력서
 
 - Astro와 TypeScript로 Markdown 기록을 태그와 제목으로 검색하는 개인 도구를 구현했다. <!-- EXP-TINY-001-1: EXP-TINY-001 -->
 - MySQL 실행 계획 스터디에서 인덱스와 쿼리 조건별 실행 계획을 비교하고 기록했다. <!-- EXP-STUDY-001-1: EXP-STUDY-001 -->

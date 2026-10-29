@@ -76,7 +76,7 @@ test('분석·작성 입력에 이력서/리뷰/승인 상태를 전달하지 �
   assert.throws(() => preparePacket('main-sample', '../verifier', root), /역할/);
 });
 test('권한 프로필에는 쓰기 허용이 없고 네트워크·추가 위임이 비활성화된다', t => {
-  const area = createWorkspace({ fictional: true });
+  const area = createWorkspace({ });
   t.after(() => fs.rmSync(area.base, { recursive: true, force: true }));
   const config = permissionConfig(area.workspace);
   const profile = config.permissions[config.default_permissions];
@@ -92,7 +92,7 @@ test('권한 프로필에는 쓰기 허용이 없고 네트워크·추가 위임
   for (let i = 1; i < args.length; i += 2) assert.doesNotThrow(() => parse(args[i]));
 });
 test('임시 작업 공간은 입력만 포함하고 가상 비밀자료는 읽기 허용 밖에 둔다', t => {
-  const area = createWorkspace({ fictional: true });
+  const area = createWorkspace({ });
   t.after(() => fs.rmSync(area.base, { recursive: true, force: true }));
   assert.deepEqual(fs.readdirSync(area.workspace), ['packet.json']);
   assert.ok(!area.outside.startsWith(area.workspace + path.sep));

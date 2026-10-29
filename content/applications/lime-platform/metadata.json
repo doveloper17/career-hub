@@ -1,11 +1,10 @@
 {
   "id": "lime-platform",
-  "company": "라임스튜디오 · 가상 회사",
+  "company": "라임스튜디오",
   "position": "Platform Engineer",
   "createdAt": "2026-10-28",
   "deadline": null,
   "jdUrl": null,
-  "fictional": true,
   "keywords": [
     "TypeScript",
     "Node.js",

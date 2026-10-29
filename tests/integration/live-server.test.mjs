@@ -36,12 +36,17 @@ test('실행 중 추가한 경력·지원·다운로드가 재시작 없이 열�
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   assert.ok(ready, logs);
+  const home = await (await fetch(url)).text();
+  assert.doesNotMatch(home, /fictional|가상 예시는/);
+  const representativePage = await (await fetch(url + '/resumes/')).text();
+  assert.match(representativePage, /대표 이력서/);
+  assert.doesNotMatch(representativePage, /가상 샘플/);
   const realFile = path.join(root, 'content/career/verified/companies/real-test.md');
   fs.writeFileSync(realFile, fs.readFileSync('content/career/verified/companies/morrow.md', 'utf8')
-    .replaceAll('EXP-MORROW-001', 'EXP-REAL-001').replace('slug: morrow-api', 'slug: real-test').replace('fictional: true', 'fictional: false'));
+    .replaceAll('EXP-MORROW-001', 'EXP-REAL-001').replace('slug: morrow-api', 'slug: real-test'));
   const real = careers(root).find(c => c.id === 'EXP-REAL-001');
   confirmSource(real.id, '테스트 승인자', sourceDigest(real), root);
-  createApplication({ id: 'real-export', company: '테스트', position: 'Backend', createdAt: '2026-10-29', deadline: null, jdUrl: null, fictional: false, keywords: ['Kotlin'] }, 'Kotlin JD', root);
+  createApplication({ id: 'real-export', company: '테스트', position: 'Backend', createdAt: '2026-10-29', deadline: null, jdUrl: null, keywords: ['Kotlin'] }, 'Kotlin JD', root);
   generate('real-export', root);
   const download = url + '/applications/real-export/resume.md';
   assert.equal((await fetch(download)).status, 403);
@@ -54,7 +59,7 @@ test('실행 중 추가한 경력·지원·다운로드가 재시작 없이 열�
   fs.mkdirSync(lock);
   assert.equal((await fetch(download)).status, 503);
   fs.rmdirSync(lock);
-  createApplication({ id: 'runtime-main', kind: 'representative', title: '실행 중 대표 이력서', company: '', position: '', createdAt: '2026-10-28', deadline: null, jdUrl: null, fictional: true, keywords: [] }, '', root);
+  createApplication({ id: 'runtime-main', kind: 'representative', title: '실행 중 대표 이력서', company: '', position: '', createdAt: '2026-10-28', deadline: null, jdUrl: null, keywords: [] }, '', root);
   generate('runtime-main', root);
   assert.match(await (await fetch(url + '/resumes/')).text(), /실행 중 대표 이력서/);
   assert.doesNotMatch(await (await fetch(url + '/applications/')).text(), /실행 중 대표 이력서/);
@@ -65,7 +70,7 @@ test('실행 중 추가한 경력·지원·다운로드가 재시작 없이 열�
   const careerFile = path.join(root, 'content/career/verified/companies/runtime.md');
   fs.writeFileSync(careerFile, fs.readFileSync('content/career/verified/companies/morrow.md', 'utf8')
     .replaceAll('EXP-MORROW-001', 'EXP-RUNTIME-001').replace('slug: morrow-api', 'slug: runtime-career'));
-  createApplication({ id: 'runtime-added', company: '실행 중 추가 가상 회사', position: 'Backend', createdAt: '2026-10-28', deadline: null, jdUrl: null, fictional: true, keywords: ['Kotlin'] }, 'Kotlin 가상 JD', root);
+  createApplication({ id: 'runtime-added', company: '실행 중 추가 가상 회사', position: 'Backend', createdAt: '2026-10-28', deadline: null, jdUrl: null, keywords: ['Kotlin'] }, 'Kotlin 가상 JD', root);
   generate('runtime-added', root);
   for (const route of ['/career/runtime-career/', '/applications/runtime-added/']) {
     const response = await fetch(url + route);

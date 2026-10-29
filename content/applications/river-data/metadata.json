@@ -1,11 +1,10 @@
 {
   "id": "river-data",
-  "company": "리버애널리틱스 · 가상 회사",
+  "company": "리버애널리틱스",
   "position": "Data Engineer",
   "createdAt": "2026-10-28",
   "deadline": null,
   "jdUrl": null,
-  "fictional": true,
   "keywords": [
     "Python",
     "PostgreSQL",

@@ -2,15 +2,14 @@
 id: EXP-HARBOR-001
 slug: harbor-data
 title: 데이터 수집 작업의 재처리 기능 구현
-company: 하버데이터 · 가상 회사
+company: 하버데이터
 kind: company
 role: 데이터 엔지니어
 start: '2020-07-01'
 end: '2022-06-30'
 status: verified
-fictional: true
 visibility: public
-confirmedBy: fictional-fixture
+confirmedBy: 예시 작성자
 tags: [Python, PostgreSQL, Airflow]
 problem: 데이터 수집 중 일부 작업이 실패하면 전체 수집을 다시 실행해야 했다.
 action: 작업별 실행 상태를 기록하고 실패한 작업만 다시 처리하도록 구성했다.
@@ -32,5 +31,3 @@ statements:
 ## 결과와 기여 범위
 
 운영 담당자가 실패 위치와 처리 상태를 확인할 수 있게 되었다. 실행 상태 기록과 재처리 로직을 담당한 사례이며, 정량 성과는 설정하지 않았다.
-
-> 회사명, 업무와 경력은 모두 화면 시연을 위한 가상 데이터입니다. 실제 사용자의 이력이 아닙니다.

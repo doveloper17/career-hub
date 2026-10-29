@@ -2,15 +2,14 @@
 id: EXP-TINY-001
 slug: tiny-log
 title: 개인 기록 도구 Tiny Log
-company: 개인 프로젝트 · 가상 예시
+company: 개인 프로젝트
 kind: project
 role: 개인 개발
 start: '2025-03-01'
 end: null
 status: verified
-fictional: true
 visibility: public
-confirmedBy: fictional-fixture
+confirmedBy: 예시 작성자
 tags: [TypeScript, Markdown, Astro]
 problem: 개인 학습 기록이 여러 문서에 흩어졌다.
 action: Markdown 기록을 태그별로 탐색하는 정적 웹을 만들었다.
@@ -23,5 +22,3 @@ statements:
 ## 구현 범위
 
 파일 기반 기록을 읽고 정적 페이지로 렌더링했다. 제목과 태그 검색을 제공한다.
-
-> 가상 개인 프로젝트입니다. 실제 배포 실적을 의미하지 않습니다.

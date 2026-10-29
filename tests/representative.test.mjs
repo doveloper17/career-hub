@@ -11,9 +11,10 @@ function setup(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-representative-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.cpSync('content/career', path.join(root, 'content/career'), { recursive: true });
+  fs.cpSync('content/source-approvals', path.join(root, 'content/source-approvals'), { recursive: true });
   return root;
 }
-const base = { id: 'main-resume', kind: 'representative', title: '대표 이력서', company: '', position: '', keywords: [], createdAt: '2026-10-28', deadline: null, jdUrl: null, fictional: true };
+const base = { id: 'main-resume', kind: 'representative', title: '대표 이력서', company: '', position: '', keywords: [], createdAt: '2026-10-28', deadline: null, jdUrl: null, };
 test('대표 이력서는 회사·JD·키워드 없이 전체 확인 경력으로 생성한다', t => {
   const root = setup(t);
   createApplication(base, '', root);
@@ -45,10 +46,10 @@ test('대표 이력서도 승인 없이 고정할 수 없고 JD 변경 시 승�
   fs.writeFileSync(path.join(appDir(base.id, root), 'jd-raw.md'), '새 JD');
   assert.throws(() => snapshot(base.id, root), /승인/);
 });
-test('대표 CLI는 선택 입력 없이 생성되고 샘플을 실제 이력에 사용하지 않는다', t => {
+test('대표 CLI는 별도 콘텐츠 모드 없이 확인 경력으로 생성한다', t => {
   const root = setup(t);
   const cli = path.resolve('scripts/cli.mjs');
   execFileSync(process.execPath, [cli, 'new-representative', '--id', 'real-main', '--title', '나의 대표 이력서'], { cwd: root });
-  assert.equal(generate('real-main', root).status, 'needs_human_input');
-  assert.equal(verify('real-main', root).passed, false);
+  assert.equal(generate('real-main', root).status, 'awaiting_human_approval');
+  assert.equal(verify('real-main', root).passed, true);
 });
