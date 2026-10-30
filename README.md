@@ -93,7 +93,8 @@ flowchart TD
     human -- "승인" --> approval["현재 문서 해시에 최종 승인 기록"]
     approval --> download["승인본 다운로드"]
     download --> snapshot["요청 시 버전 고정본 보관"]
-    target -. "모델 호출 전후 상태·사용량 저장" .-> checkpoint["실행기 상태 파일<br/>단계·입력 버전·사용량·질문"]
+    target -. "모델 호출 전후 체크포인트" .-> checkpoint["실행기 상태 파일<br/>단계·입력/실행 버전·사용량·질문"]
+    checkpoint -. "자동 요약 · 읽기 전용 진단" .-> handoff["handoff.md / workflow handoff<br/>다음 행동 · 사람 결정 사항"]
     checkpoint -. "예산·오류·중단·입력 변경 감지" .-> pause["상태를 보존하고 대기"]
     pause -- "사용자가 원인 해결·변경 수락 후 resume" --> resumed["저장된 단계부터 재개<br/>입력이 바뀌면 분석부터 재검토"]
 ```
@@ -241,6 +242,9 @@ set "PORT="
 │   ├── agent-contract.mjs     # 결과 계약·문장별 검토·두 PASS 검사
 │   ├── agent-permissions.mjs  # 역할별 입력·읽기 전용 권한·거부 검사
 │   ├── agent-runner.mjs       # 격리된 역할별 Codex 실행
+│   ├── agent-definition.mjs   # 역할 설정·실제 프롬프트 조립
+│   ├── execution-version.mjs  # 코드·규칙·모델·프롬프트 버전 지문
+│   ├── handoff.mjs            # 상태 기반 인수인계·조건별 다음 행동
 │   ├── model-process.mjs      # 이벤트·관측 usage·중단·시간 제한
 │   ├── repository-policy.mjs  # 로컬 기록의 Git 차단 정책
 │   └── template-policy.mjs    # 공개 허용 콘텐츠의 Git blob 해시 검사
@@ -369,12 +373,17 @@ content/applications/tutorial-backend/
 
 ```text
 npm run workflow -- status tutorial-backend
+npm run workflow -- handoff tutorial-backend
 npm run workflow -- resume tutorial-backend --confirm-send
 ```
 
 실행기는 리뷰의 문제 문장·이유·수정 기준을 작성자에게 전달해 최대 2회 표현을 수정합니다. 사실 정보 부족은 원본을 수정하지 않고 질문으로 남깁니다. 사람이 사실을 확인하고 총괄이 원본과 원본 확인 기록을 저장한 다음 `resume ID --accept-changes --confirm-send`로 재검토합니다. 기존 CLI `repair ID`는 원문 선택 재생성이며 같은 metadata.retries를 사용합니다. 새 표현만을 위해 원본에 표현을 등록하거나 원본 승인을 다시 받을 필요는 없습니다.
 
 기본 예산은 `workflow-policy.json`에 있으며 호출 12회·자동 수정 2회·관측 토큰 200000·활성 시간 30분입니다. 각 모델 호출 전에 시도 횟수와 단계가 저장되므로 모델이 중단돼도 기록이 남습니다. 토큰은 반환된 실제 usage를 누적하며 진행 중 호출의 초과나 계정 한도를 보장하는 것은 아닙니다. 예산 확대·불명확한 호출의 재시도·강제 종료 후 복구 명령은 [실행기 문서](docs/EXECUTOR.md)를 따릅니다.
+
+체크포인트의 `state.json`에서 `handoff.md`를 자동 생성합니다. `workflow handoff ID`는 현재 파일·잠금·실행 버전까지 읽기 전용으로 확인하여 다음 행동을 안내하며 모델을 호출하지 않습니다. 저장된 요약은 생성 시점의 파생본이고 상태 파일이 기준입니다. `.local/WORK_LOG.md`에는 개발 작업·결정·검증과 대상 ID만 기록하고 실행 단계·사용량을 중복 전사하지 않습니다. `.local/`을 잃으면 실행 기록도 사라지므로 비공개 백업이 필요합니다. 재개는 저장 단계부터이며 모델의 내부 생성 위치 복원이나 자동 재기동이 아닙니다.
+
+실행 상태는 코드 커밋과 실제 코드·규칙·모델·추론 강도·프롬프트·출력 스키마의 지문을 보관합니다. `--model`은 workflow 재개에도 유지됩니다. 실행 구성이 바뀌면 `version_mismatch`로 중단하며, 차이와 추가 비용 확인 후 `resume ID --accept-version-change --confirm-send`로 수락합니다. 입력도 바뀌었다면 `--accept-changes`도 필요합니다. 수락 시 이전 결과를 재사용하지 않고 재검토하며 사용량·수정 한도를 초기화하지 않습니다. 원본 확인·최종 승인·예산 확대는 별개입니다. 정확한 해시 범위와 보호 한계는 [실행 버전 규약](docs/EXECUTOR.md#실행-버전과-재검토)을 따릅니다.
 
 ### 6.3 실제 리뷰 후 결과 기록
 
@@ -410,7 +419,7 @@ npm run career -- snapshot tutorial-backend --confirm
 
 이 표는 지원 자료·웹의 상태입니다. 실행기의 `awaiting_human_input`, `budget_exhausted`, `stale` 등은 별도의 실행 상태이며 `npm run workflow -- status 지원ID`로 확인합니다. 웹의 `awaiting_human_approval`은 초안 생성 직후에도 표시될 수 있으므로 두 리뷰 완료 여부는 현재 리뷰 증거까지 확인합니다.
 
-웹 목록은 저장된 metadata.status를 그대로 표시하지 않고 현재 자료에서 상태를 다시 계산합니다. revision=0이면 draft, 생성본의 구조 검사가 실패하면 verification_failed, 현재 해시의 FAIL 리뷰가 있으면 review_failed입니다. 그 밖에 현재 리뷰 증거·승인이 모두 유효할 때만 approved/submitted이고, 아니면 awaiting_human_approval입니다. 보조 생성기가 기록한 needs_human_input도 웹에서는 구조 검사 결과에 따라 verification_failed 등으로 보일 수 있습니다. 실행기 status는 마지막 체크포인트 기록을 읽으므로 웹의 현재 제출 가능 판단과 구분하세요.
+웹 목록은 저장된 metadata.status를 그대로 표시하지 않고 현재 자료에서 상태를 다시 계산합니다. revision=0이면 draft, 생성본의 구조 검사가 실패하면 verification_failed, 현재 해시의 FAIL 리뷰가 있으면 review_failed입니다. 그 밖에 현재 리뷰 증거·승인이 모두 유효할 때만 approved/submitted이고, 아니면 awaiting_human_approval입니다. 보조 생성기가 기록한 needs_human_input도 웹에서는 구조 검사 결과에 따라 verification_failed 등으로 보일 수 있습니다. 실행기 status는 저장된 상태와 현재 변경·잠금 진단인 health를 반환하며 상태를 자동 갱신하지 않습니다. 웹의 현재 제출 가능 판단과 구분하세요.
 
 ### 6.5 검토 화면과 제출용 다운로드의 차이
 
@@ -519,11 +528,11 @@ git push origin BRANCH_NAME
 
 1. README를 읽고 사용자 요청을 실행/경력 작성/기능 수정 중 무엇인지 파악한다. 이미 알려진 내용을 다시 묻지 않는다.
 2. `npm run worklog:init`으로 `.local/WORK_LOG.md`를 준비한다. 있으면 덮어쓰지 않고 읽는다. 없으면 빈 양식에서 시작하며 과거 대화를 추측하지 않는다.
-3. 기존 변경과 실제 파일 상태를 확인하고 작업 순서·완료 조건을 기록한다. 한 단계마다 체크하고 변경 파일·검증 결과·남은 작업·다음 명령을 적는다.
+3. 기존 변경과 실제 파일 상태를 확인하고 개발 작업 순서·완료 조건을 기록한다. 단계별 변경 파일·검증 결과·남은 작업을 적되 이력서 실행의 단계·사용량은 workflow handoff를 사용한다.
 4. 실행만 요청받으면 현재 저장소의 content 자료로 실행한다. 지원 이력서는 JD·회사·포지션·키워드가 필수이며 대표 이력서는 제목만 필수다. 둘 다 사용할 경력의 현재 원본 확인과 공개 범위를 점검한다. 모르는 사실만 질문해 pending에 남긴다.
 5. 기능 수정 시 데이터 스키마 → 핵심 로직 → 화면/CLI → 검증 순서로 영향 범위를 확인한다. 사용자 변경을 보존하고 범위를 임의로 넓히지 않는다.
 6. 검사·리뷰·최종 승인을 분리하고 필요한 사용자 승인을 기록한다. 문서의 예제 명령을 승인으로 간주하지 않는다.
-7. 단계 완료마다 로컬 기록을 저장한다. 토큰/세션 중단을 막을 수는 없으므로 종료 직전에 몰아서 기록하지 않는다. 중단 후 첫 미완료 단계부터 재개한다.
+7. 개발 단계 완료마다 로컬 기록을 저장하고, 실행기는 체크포인트와 handoff.md를 자동 저장한다. 중단 후 workflow handoff로 현재 잠금·버전·불명확한 호출부터 진단한다. 모델 생성 중간 토큰부터 복원하거나 기록 없이 재호출하지 않는다.
 8. 완료 시 실제 변경 내용과 검증 결과를 보고한다. 현재 기능이 달라졌으면 README/설계 문서도 수정하되 개인 작업 이력은 넣지 않는다.
 
 새 AI에 전달할 수 있는 작업 예시:

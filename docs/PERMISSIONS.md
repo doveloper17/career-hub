@@ -26,7 +26,9 @@ npm run agents -- run main-sample feedback-coach --confirm-send
 
 모델·추론 강도는 `.codex/agents/ROLE.toml`의 주석 바로 아래 `model`·`model_reasoning_effort` 값을 수정한다. 기본은 모든 역할 gpt-6.1-sol, medium이다. `--model MODEL`로 한 번의 실행 모델만 변경할 수 있다. packet은 입력을 로컬 stdout으로 표시하므로 공개 로그에 남기지 않는다. run은 모델 서비스로 자료를 전달한다. `--confirm-send`는 사용자 승인을 받은 총괄이 지정하는 확인 장치이지 사람 인증이 아니다. 로그인 정보는 신뢰하는 Codex 호스트가 사용하며 패킷으로 전달하지 않는다. `.env`는 로딩하지 않고 API 키·토큰·프록시·NODE_OPTIONS 등 환경 변수도 상속하지 않는다.
 
-runner가 TOML에서 실제 읽는 실행 항목은 name·model·model_reasoning_effort·developer_instructions다. 강제 권한 프로필은 lib/agent-runner.mjs의 permissionConfig와 probePermissions가 구성한다. 역할 TOML의 features 표만 수정해 쓰기 권한이 달라진다고 가정하지 않는다. 네 모델의 읽기 전용 도구 권한은 동일하며 역할별 차이는 전달 패킷과 검토 지침이다. 호스트 실행기/총괄의 저장 권한과 모델 도구 권한은 별개다.
+lib/agent-definition.mjs가 TOML에서 읽는 실행 항목은 name·model·model_reasoning_effort·developer_instructions다. 강제 권한 프로필은 lib/agent-runner.mjs의 permissionConfig와 probePermissions가 구성한다. 역할 TOML의 features 표만 수정해 쓰기 권한이 달라진다고 가정하지 않는다. 네 모델의 읽기 전용 도구 권한은 동일하며 역할별 차이는 전달 패킷과 검토 지침이다. 호스트 실행기/총괄의 저장 권한과 모델 도구 권한은 별개다.
+
+workflow는 모델 override와 실행 버전을 저장하고 재개 때 비교한다. --model의 변경은 --accept-version-change가 필요하며 단일 agents run은 독립 호출이다. 호스트가 기록하는 execution.version과 handoff.md는 모델 권한·사람 승인·사실 확인을 부여하지 않는다. 버전 메타데이터에는 사용자 경로·원격 URL·프롬프트 원문·경력 내용을 복제하지 않는다. 세부 범위와 한계는 [실행기](EXECUTOR.md)를 따른다.
 
 ## 강제되는 경계
 

@@ -4,8 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { createApplication, approve, digest, submissionState } from '../lib/workflow.mjs';
-import { startRun, readRun, resumeRun, updateBudget, recoverRun } from '../lib/orchestrator.mjs';
+import { startRun, readRun, resumeRun, updateBudget, recoverRun, inspectRun, handoffRun } from '../lib/orchestrator.mjs';
+import { captureExecutionVersion } from '../lib/execution-version.mjs';
 import { preparePacket } from '../lib/agent-permissions.mjs';
 import { passingResult } from './review-fixture.mjs';
 import { readModelEvents } from '../lib/model-process.mjs';
@@ -39,7 +41,8 @@ function fake(options = {}) {
         result.findings = [{ claim_id: 'claim-one', source_ids: packet.provenance.claims[0].sources, text: '표현을 간결하게', reason: '중복 표현', acceptance_criteria: '원본 사실을 유지하며 간결하게' }];
       }
     }
-    return { result, isolation, usage: { tokens: 10, metered: true }, execution: { model: 'test-double', reasoning_effort: 'medium' } };
+    const selected = context.executionVersion.roles.find(item => item.role === role);
+    return { result, isolation, usage: { tokens: 10, metered: true }, execution: { model: selected.model, reasoning_effort: selected.effort, version: context.executionVersion } };
   };
   return { execute, calls };
 }
@@ -140,7 +143,47 @@ test('살아 있는 실행 잠금과 전송 승인 없는 모델 실행을 거�
   fs.writeFileSync(lock, JSON.stringify({ pid: process.pid }));
   await assert.rejects(resumeRun('flow', opts(provider), root));
   assert.throws(() => recoverRun('flow', root), /살아/);
+  assert.throws(() => updateBudget('flow', { maxCalls: 20 }, root), /예산 변경 금지/);
   assert.equal(readRun('flow', root).spent.calls, 0);
+});
+
+test('요약 파일 저장 실패도 상태를 보존하고 읽기 전용 명령으로 재구성한다', t => {
+  const root = fixture(t);
+  startRun('flow', {}, root);
+  const dir = path.join(root, '.local/workflow-runs/flow');
+  fs.unlinkSync(path.join(dir, 'handoff.md'));
+  fs.mkdirSync(path.join(dir, 'handoff.md'));
+  updateBudget('flow', { maxCalls: 7 }, root);
+  assert.equal(readRun('flow', root).policy.maxCalls, 7);
+  assert.match(handoffRun('flow', {}, root), /예산: 호출 7/);
+});
+
+test('CLI status와 handoff는 모델 호출·상태 쓰기 없이 현재 진단을 반환한다', t => {
+  const root = fixture(t);
+  startRun('flow', {}, root);
+  const file = path.join(root, '.local/workflow-runs/flow/state.json');
+  const before = fs.readFileSync(file, 'utf8');
+  for (const command of ['status', 'handoff']) {
+    const output = spawnSync(process.execPath, [path.resolve('scripts/workflow.mjs'), command, 'flow'], { cwd: root, encoding: 'utf8' });
+    assert.equal(output.status, 0, output.stderr);
+    if (command === 'status') {
+      const state = JSON.parse(output.stdout);
+      assert.equal(state.health.lock, 'none');
+      assert.equal(state.health.versionMismatch, false);
+      assert.equal(state.spent.calls, 0);
+    } else assert.match(output.stdout, /# 실행 인수인계/);
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  }
+});
+
+test('손상된 프로세스 잠금은 죽은 것으로 추측하지 않고 자동 복구를 안내하지 않는다', t => {
+  const root = fixture(t);
+  startRun('flow', {}, root);
+  fs.writeFileSync(path.join(root, '.local/workflow-runs/flow/owner.json'), 'invalid');
+  assert.equal(inspectRun('flow', {}, root).health.lock, 'unknown');
+  const summary = handoffRun('flow', {}, root);
+  assert.match(summary, /잠금을 지우지 말고/);
+  assert.doesNotMatch(summary, /npm run workflow -- recover/);
 });
 test('JSONL에서 최종 응답과 실제 usage를 읽고 도구 실행·오류는 거부한다', () => {
   const stream = [{ type: 'item.completed', item: { type: 'agent_message', text: '{"ok":true}' } },
@@ -162,6 +205,25 @@ test('결과 저장 직후 중단되면 현재 입력이 같은 결과를 재호
   assert.equal(state.status, 'awaiting_human_approval');
   assert.equal(provider.calls.filter(r => r === 'job-market-analyst').length, 1);
   assert.equal(state.spent.calls, 4);
+  assert.equal(state.spent.tokens, 40);
+  assert.equal(state.spent.unmeteredCalls, 0);
+});
+test('사용량 저장 후 중단된 응답을 재사용해도 토큰을 중복 차감하지 않는다', async t => {
+  const root = fixture(t), provider = fake();
+  startRun('flow', {}, root);
+  const failed = await resumeRun('flow', { confirmSend: true, execute: async (...args) => {
+    const envelope = await provider.execute(...args);
+    args[4].onUsage({ tokens: 10 });
+    args[4].onResult(envelope);
+    throw new Error('사용량·응답 저장 후 중단');
+  } }, root);
+  assert.equal(failed.spent.tokens, 10);
+  assert.equal(failed.inFlight.usageRecorded, true);
+  const state = await resumeRun('flow', opts(provider), root);
+  assert.equal(state.status, 'awaiting_human_approval');
+  assert.equal(state.spent.calls, 4);
+  assert.equal(state.spent.tokens, 40);
+  assert.equal(state.spent.unmeteredCalls, 0);
 });
 test('모델 호출 중 원본이 바뀌면 반환한 작성·분석 결과를 저장하지 않는다', async t => {
   const root = fixture(t), provider = fake();
@@ -190,4 +252,121 @@ test('문장별 의미 검토 누락과 다른 문서 버전은 수동 PASS로�
   review.agentReviews[1].target_digest = '다른 버전';
   fs.writeFileSync(file, JSON.stringify(review));
   assert.equal(submissionState('flow', root).reviewed, false);
+});
+
+test('인수인계는 자동 생성되고 삭제되어도 상태에서 읽기 전용으로 재구성한다', async t => {
+  const root = fixture(t), provider = fake();
+  startRun('flow', { limits: { maxCalls: 2 } }, root);
+  const dir = path.join(root, '.local/workflow-runs/flow');
+  assert.match(fs.readFileSync(path.join(dir, 'handoff.md'), 'utf8'), /실행 인수인계/);
+  await resumeRun('flow', opts(provider), root);
+  assert.match(fs.readFileSync(path.join(dir, 'handoff.md'), 'utf8'), /budget_exhausted/);
+  fs.unlinkSync(path.join(dir, 'handoff.md'));
+  const before = fs.readFileSync(path.join(dir, 'state.json'), 'utf8');
+  assert.match(handoffRun('flow', {}, root), /호출 2/);
+  assert.equal(inspectRun('flow', {}, root).health.versionMismatch, false);
+  assert.equal(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'), before);
+  assert.equal(fs.existsSync(path.join(dir, 'handoff.md')), false);
+  assert.equal(provider.calls.length, 2);
+});
+
+test('모델 변경은 명시적 수락 전 차단하고 저장한 override와 기존 사용량을 유지한다', async t => {
+  const root = fixture(t), provider = fake();
+  startRun('flow', { model: 'test-model-a', limits: { maxCalls: 1 } }, root);
+  await resumeRun('flow', opts(provider), root);
+  assert.equal(readRun('flow', root).spent.calls, 1);
+  assert.equal((await resumeRun('flow', { ...opts(provider), model: 'test-model-b' }, root)).status, 'version_mismatch');
+  assert.equal(provider.calls.length, 1);
+  updateBudget('flow', { maxCalls: 5 }, root);
+  const done = await resumeRun('flow', { ...opts(provider), model: 'test-model-b', acceptVersionChange: true }, root);
+  assert.equal(done.status, 'awaiting_human_approval');
+  assert.equal(done.spent.calls, 5);
+  assert.equal(done.executionVersion.modelOverride, 'test-model-b');
+  assert.equal(done.versionHistory.length, 2);
+  assert.equal((await resumeRun('flow', opts(provider), root)).status, 'awaiting_human_approval');
+  assert.equal(provider.calls.length, 5);
+});
+
+test('호출 도중 실행 버전이 바뀌면 응답을 적용하지 않고 이전 캐시를 폐기해 재검토한다', async t => {
+  const root = fixture(t), provider = fake();
+  const first = captureExecutionVersion();
+  let current = first;
+  const versionProvider = () => current;
+  startRun('flow', { versionProvider }, root);
+  const execute = async (...args) => {
+    const envelope = await provider.execute(...args);
+    current = { ...first, fingerprint: 'b'.repeat(64) };
+    return envelope;
+  };
+  const stopped = await resumeRun('flow', { confirmSend: true, versionProvider, execute }, root);
+  assert.equal(stopped.status, 'version_mismatch');
+  assert.equal(stopped.spent.calls, 1);
+  assert.equal(fs.existsSync(path.join(root, 'content/applications/flow/jd-analysis.md')), false);
+  const done = await resumeRun('flow', { ...opts(provider), versionProvider, acceptVersionChange: true }, root);
+  assert.equal(done.status, 'awaiting_human_approval');
+  assert.equal(provider.calls.filter(role => role === 'job-market-analyst').length, 2);
+  assert.equal(done.spent.calls, 5);
+});
+
+test('입력과 실행 버전이 모두 바뀌면 두 수락이 있어야 하며 한쪽만으로 스냅샷을 바꾸지 않는다', async t => {
+  const root = fixture(t), provider = fake();
+  startRun('flow', { limits: { maxCalls: 1 } }, root);
+  await resumeRun('flow', opts(provider), root);
+  const old = readRun('flow', root).executionVersion.fingerprint;
+  fs.appendFileSync(path.join(root, 'content/applications/flow/jd-raw.md'), '\n검토 조건 추가');
+  const stopped = await resumeRun('flow', { ...opts(provider), model: 'test-new-model', acceptVersionChange: true }, root);
+  assert.equal(stopped.status, 'stale');
+  assert.equal(stopped.executionVersion.fingerprint, old);
+  assert.equal(provider.calls.length, 1);
+  updateBudget('flow', { maxCalls: 5 }, root);
+  const done = await resumeRun('flow', { ...opts(provider), model: 'test-new-model', acceptVersionChange: true, acceptChanges: true }, root);
+  assert.equal(done.status, 'awaiting_human_approval');
+  assert.equal(done.spent.calls, 5);
+});
+
+test('버전 없는 기록을 추측해 승격하지 않고 사용량을 유지해 명시적 수락한다', async t => {
+  const root = fixture(t), provider = fake();
+  const state = startRun('flow', {}, root);
+  const file = path.join(root, '.local/workflow-runs/flow/state.json');
+  state.version = 1;
+  delete state.executionVersion; delete state.versionHistory;
+  state.spent.calls = 2; state.spent.tokens = 77;
+  fs.writeFileSync(file, JSON.stringify(state));
+  assert.equal((await resumeRun('flow', opts(provider), root)).status, 'version_mismatch');
+  assert.equal(provider.calls.length, 0);
+  const done = await resumeRun('flow', { ...opts(provider), acceptVersionChange: true }, root);
+  assert.equal(done.spent.calls, 6); assert.equal(done.spent.tokens, 117);
+  assert.equal(done.versionHistory.length, 1);
+});
+
+test('버전 불일치 후 설정을 되돌려도 기존 사람 확인 대기를 우회하지 않는다', async t => {
+  const root = fixture(t), provider = fake({ requireFact: true });
+  const first = captureExecutionVersion(); let current = first;
+  const versionProvider = () => current;
+  startRun('flow', { versionProvider }, root);
+  await resumeRun('flow', { ...opts(provider), versionProvider }, root);
+  current = { ...first, fingerprint: 'c'.repeat(64) };
+  assert.equal((await resumeRun('flow', { ...opts(provider), versionProvider }, root)).status, 'version_mismatch');
+  current = first;
+  assert.equal((await resumeRun('flow', { ...opts(provider), versionProvider }, root)).status, 'awaiting_human_input');
+  assert.equal(provider.calls.length, 2);
+});
+
+test('응답 메타데이터의 실행 버전이나 모델 설정 누락을 허용하지 않는다', async t => {
+  const root = fixture(t), provider = fake();
+  startRun('flow', {}, root);
+  const execute = async (...args) => { const envelope = await provider.execute(...args); delete envelope.execution.version; return envelope; };
+  const stopped = await resumeRun('flow', { confirmSend: true, execute }, root);
+  assert.equal(stopped.status, 'failed');
+  assert.equal(stopped.spent.calls, 1);
+  assert.equal(fs.existsSync(path.join(root, 'content/applications/flow/jd-analysis.md')), false);
+});
+
+test('살아 있는 잠금은 인수인계에서도 중복 실행·복구 명령을 제시하지 않는다', t => {
+  const root = fixture(t);
+  startRun('flow', {}, root);
+  fs.writeFileSync(path.join(root, '.local/workflow-runs/flow/owner.json'), JSON.stringify({ pid: process.pid }));
+  const report = handoffRun('flow', {}, root);
+  assert.match(report, /프로세스가 살아/);
+  assert.doesNotMatch(report, /```sh\nnpm run workflow -- (resume|recover)/);
 });

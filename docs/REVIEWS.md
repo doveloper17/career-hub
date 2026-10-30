@@ -26,7 +26,10 @@
 | sourceDigest | 스키마로 읽은 경력 필드와 Markdown body, 실행 환경의 file 경로는 제외 | source-approvals의 확인 digest와 대조. 변경·누락·확인 기록 오류 또는 private이면 사용 불가 |
 | 이력서 digest | status/approval/retries를 제외한 지원 스키마 필드, JD·분석·전략·본문·provenance 텍스트, 실제 사용한 경력 ID와 sourceDigest/usable | 리뷰 target_digest, 최종 승인 digest, 다운로드·고정본의 현재성 검사 |
 | 실행 inputVersion | 이력서 digest, metadata.retries, verified 전체 경력의 ID/sourceDigest/usable | 호출 전후 및 resume의 입력 변경 감지 |
+| executionVersion.fingerprint | 실제 실행 코드·규칙·역할 모델/추론·전체 프롬프트·결과 스키마·계약/Node 버전 | 실행기 재개·응답/캐시 적용 전 실행 구성 변경 감지. 커밋 ID는 별도 추적 정보 |
 | 패킷 packetHash | 해당 호출에 전달한 JSON 패킷 전체 | 모델 실행 중 입력 변경·중단 응답 재사용 검사 |
+
+실행 버전 검사는 승인된 경력의 진실성이나 AI 검토의 정확성을 보증하지 않는다. 콘텐츠 리뷰·승인·다운로드 게이트는 기존 문서/출처 해시를 사용하며 실행 fingerprint를 별도 승인 조건으로 삼지 않는다. 범위·예외·명시적 변경 수락은 [실행기](EXECUTOR.md#실행-버전과-재검토)를 따른다.
 | 공개 템플릿 허용 해시 | content의 Git blob 바이트 | template-data.json의 공개 허용 경로·해시 검사. 이력서 의미 검증과 별개 |
 
 sourceDigest는 파일 바이트 자체가 아니라 파싱된 스키마 데이터와 body의 JSON을 해시한다. 파일명·YAML 필드 배치만 바꾸거나 스키마 밖 필드를 추가했다고 반드시 달라지는 것은 아니다. 반면 body·수치·기간·기여 등 파싱된 경력 내용이 바뀌면 원본 확인이 만료된다. 이력서 digest는 관련 문서의 텍스트를 포함하므로 사소한 공백 변경도 재검토를 유발할 수 있다.

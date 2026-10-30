@@ -13,7 +13,9 @@
 | verifier | gpt-6.1-sol | medium |
 | feedback-coach | gpt-6.1-sol | medium |
 
-모델 변경은 해당 TOML 상단의 `model` 값을, 추론 강도 변경은 `model_reasoning_effort` 값을 수정한다. 각 파일의 주석에 변경 방법을 적어두었다. `#`로 시작하는 설명 주석 자체를 바꾸는 것은 실행 설정 변경이 아니다. 실행 결과의 `execution.model`과 `execution.reasoning_effort`로 실제 전달한 설정을 확인한다. 모델 접근 불가나 지원하지 않는 추론 강도는 실행 오류로 처리하며 다른 모델로 자동 대체하지 않는다.
+모델 변경은 해당 TOML 상단의 `model` 값을, 추론 강도 변경은 `model_reasoning_effort` 값을 수정한다. 각 파일의 주석에 변경 방법을 적어두었다. 설명 주석은 실효 모델을 바꾸지 않지만 TOML 파일 전체를 실행 버전의 규칙 해시에 포함하므로 변경 시 재개 수락이 필요하다. 실행 결과의 `execution.model`과 `execution.reasoning_effort`로 실제 전달한 설정을 확인한다. 모델 접근 불가나 지원하지 않는 추론 강도는 실행 오류로 처리하며 다른 모델로 자동 대체하지 않는다.
+
+`lib/agent-definition.mjs`가 설정과 실제 프롬프트를 조립한다. 호스트가 원응답 envelope의 `execution.version`에 코드·규칙·모델·프롬프트·스키마 지문을 추가하며 모델의 result JSON 계약과는 별개다. 실행기는 호출 전후와 캐시의 같은 버전을 검사한다. workflow의 --model은 재개에도 유지되고 변경 수락은 기존 비용을 보존한 재검토다. 인수인계 요약은 호스트 상태 파생본이며 검토자에게 이전 판정이나 대화를 전달하는 통로로 사용하지 않는다. [실행 버전 규약](EXECUTOR.md#실행-버전과-재검토)을 따른다.
 
 | 이름 | 정의 | 입력 | 추가 출력 |
 | --- | --- | --- | --- |

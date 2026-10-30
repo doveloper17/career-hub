@@ -15,7 +15,7 @@ flowchart TD
     jd["지원별 이력서<br/>회사 · JD · 포지션 · 키워드"]
     main["대표 이력서<br/>제목 필수 · 회사와 JD는 선택"]
     subgraph execution["실행기 자동 처리 영역 · 호출·결과 저장·구조 검사·리뷰·표현 수정"]
-    analysis["실행기 시작 · 상태·입력 버전 저장<br/>JD 또는 대표 목적 분석"]
+    analysis["실행기 시작 · 상태·입력/실행 버전 저장<br/>JD 또는 대표 목적 분석"]
     draft["작성 에이전트가 사실을 보존하는 표현 반환<br/>실행기가 초안·전략·출처 저장"]
     code["코드 구조 검사<br/>원본 확인 · 출처 · 본문 정합성"]
     reviews["독립 AI 리뷰 두 건<br/>사실 검증 + 채용 관점 품질 검토"]
@@ -64,7 +64,7 @@ flowchart TD
     user["사용자<br/>목적 · 사실 확인 · 최종 승인"] --> coordinator["총괄 AI<br/>대상·순서 정리 · 질문 · 원본 반영 협의"]
     coordinator -- "start / resume · 허용한 자료 범위" --> dispatch
     subgraph executor["실행기 · lib/orchestrator.mjs"]
-        dispatch["다음 단계 선택 · 예산·입력 버전 확인<br/>호출 전 시도 횟수 저장"]
+        dispatch["다음 단계 선택 · 예산·입력/실행 버전 확인<br/>호출 전 시도 횟수 저장"]
         receive["응답·usage 저장 · 결과 계약 검증<br/>버전 변경·검토 누락 검사"]
         persist["분석·초안·출처·리뷰 저장<br/>코드 구조 검사"]
         decide{"다음 행동 결정"}
@@ -79,7 +79,8 @@ flowchart TD
     verifier --> receive
     dispatch -- "4. 같은 버전 · 다른 판정 제외" --> coach["feedback-coach<br/>품질 checks 반환"]
     coach --> receive
-    dispatch -. "호출 전 기록" .-> state[".local/workflow-runs/ID/<br/>단계·입력 버전·원응답·질문·사용량"]
+    dispatch -. "호출 전 기록" .-> state[".local/workflow-runs/ID/<br/>단계·입력/실행 버전·원응답·질문·사용량"]
+    state -. "자동 파생 요약" .-> handoff["handoff.md<br/>최신 진단은 workflow handoff"]
     receive -. "응답 후 기록" .-> state
     state -. "재개 시 상태 복원" .-> dispatch
     decide -- "사실 정보 부족 · 구조 실패 · 최종 승인 대기" --> coordinator
@@ -96,7 +97,7 @@ flowchart TD
     request["사용자 요청<br/>JD 또는 대표 이력서 목적"]
     start["총괄<br/>대상 ID · 사용 가능한 원본 · 작업 순서 확인"]
     analyst["job-market-analyst<br/>요건과 경력 연결 · 근거 부족 식별"]
-    runner["실행기<br/>단계·입력 버전·예산 확인 · 호출 전 기록"]
+    runner["실행기<br/>단계·입력/실행 버전·예산 확인 · 호출 전 기록"]
     analysis["실행기<br/>분석 결과 계약 검증 · 분석 파일 저장"]
     writer["resume-writer<br/>원본 사실의 의미를 보존하는 표현 작성"]
     save["실행기<br/>초안·전략·출처 저장 · 구조 검사 · 버전 고정"]
@@ -222,6 +223,7 @@ flowchart TD
 | 현재 검증·리뷰·최종 승인 | 이력서 상세의 검토 체크포인트 | 현재 데이터 재검사, `quality-review.json`, `metadata.json` |
 | 작업 순서·검증·다음 작업 | 개인 작업 기록 | `.local/WORK_LOG.md` — Git 제외 |
 | 실행 단계·모델 원응답·질문·사용량·재개 지점 | 웹 전용 화면 없음, workflow status | `.local/workflow-runs/ID/` — Git 제외 |
+| 자동 인수인계·현재 변경/잠금 진단 | workflow handoff | 같은 폴더의 `handoff.md`는 저장 시점 요약, `state.json`이 기준 |
 
 웹은 조회용이다. 콘텐츠 저장 후 새로고침하면 반영된다. 실행기는 분석·작성·검사·리뷰 기록을 자동 연결하고, 원본 확인·최종 승인은 사람 지시 후 총괄이 CLI로 처리한다. 초안 조회와 웹 빌드가 가능하더라도 제출 가능한 상태인지는 별도 검증한다. 웹의 지원 metadata 상태와 실행기 state.status는 별개이며, 웹의 검토 대기만으로 두 리뷰 완료를 판단하지 않는다. 외부 채용 사이트 지원, Git 푸시, 알림 전송은 각각 별도 요청에 따른다.
 
@@ -229,11 +231,13 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    stage["저장된 단계"] --> budget{"호출·관측 토큰·활성 시간<br/>입력 크기 예산 안인가?"}
+    stage["저장된 단계"] --> version{"입력·실행 버전이 같은가?"}
+    version -- "예" --> budget{"호출·관측 토큰·활성 시간<br/>입력 크기 예산 안인가?"}
+    version -- "아니오 / 실행 버전 미기록" --> changed["stale / version_mismatch<br/>기존 결과 적용·호출 중단"]
     budget -- "예" --> reserve["호출 횟수·run_id·입력 버전 저장"]
     reserve --> model["읽기 전용 모델 호출"]
     model --> saved["원응답·관측 usage 저장 · 결과 계약 검사"]
-    saved --> same{"입력 버전이 그대로인가?"}
+    saved --> same{"입력·실행 버전이 그대로인가?"}
     same -- "예" --> next["결과 저장 · 다음 단계 기록"]
     next --> more{"남은 자동 단계가 있나?"}
     more -- "예" --> stage
@@ -241,15 +245,19 @@ flowchart TD
     budget -- "아니오" --> pause["budget_exhausted · 상태 보존"]
     model -- "중단·시간 초과·실행 실패" --> error["interrupted / failed · 사용량 보존"]
     saved -- "형식·격리 검사 실패" --> error
-    same -- "아니오" --> stale["stale · 이전 결과 적용 금지"]
+    same -- "아니오" --> stale["stale / version_mismatch · 이전 결과 적용 금지"]
+    next -. "체크포인트 저장 시 자동 요약" .-> handoff["handoff.md · 다음 행동<br/>state.json이 기준"]
     pause --> user["사용자가 원인 확인<br/>필요한 경우에만 예산 변경·복구·재시도 허용"]
     error --> user
     stale --> user
-    user -- "변경된 입력은 명시적 수락<br/>불명확한 호출은 명시적 재시도" --> stage
+    changed --> user
+    user -- "입력/실행 버전 변경은 각각 명시적 수락<br/>불명확한 호출은 비용 확인 후 명시적 재시도" --> stage
 ```
 
 실행기는 스스로 예산을 확대하거나 계정 한도 초기화를 기다렸다가 다시 호출하지 않는다. 결과가 저장되어 있고 입력이 같으면 재호출 없이 복구할 수 있다. 토큰은 관측한 실제 사용량을 다음 호출 전에 검사하는 기준이며 진행 중 호출의 초과를 완전히 막는 상한은 아니다. 잠금 복구·재시도·예산 명령은 [실행기 문서](EXECUTOR.md#상태와-재개)를 따른다.
 
-status는 마지막 저장 체크포인트이며 현재 콘텐츠의 재검증이 아니다. completed 실행은 재개해도 종료 상태를 그대로 반환하므로, 현재 승인·다운로드 가능 여부는 공통 submissionState와 웹 다운로드 게이트로 확인한다. 수정 한도는 같은 지원 ID에 적용하며 새 ID·단일 runner까지 합산하는 전역 비용 시스템은 아니다.
+status는 저장 체크포인트와 현재 입력·실행 버전·잠금 진단인 health를 반환하며 저장 상태를 자동 갱신하지 않는다. handoff는 같은 진단에서 다음 행동을 읽기 전용으로 생성한다. completed 실행은 재개해도 종료 상태를 그대로 반환하므로, 현재 승인·다운로드 가능 여부는 공통 submissionState와 웹 다운로드 게이트로 확인한다. 수정 한도는 같은 지원 ID에 적용하며 새 ID·단일 runner까지 합산하는 전역 비용 시스템은 아니다.
+
+실행 구성 변경은 --accept-version-change, 입력 변경은 --accept-changes로 각각 수락한다. 새 버전에서는 이전 결과를 재사용하지 않고 분석부터(검토 전용은 구조 검사부터) 재검토하며 누적 비용·수정 한도를 보존한다. 사람 사실 확인·최종 승인·예산 확대는 별도다. WORK_LOG는 개발 결정·검증만 보완하며 자동 실행 기록을 중복 작성하지 않는다. 버전 범위·복구·캐시·백업의 한계는 [실행기](EXECUTOR.md)를 따른다.
 
 명령 예제는 [README](../README.md), 역할별 모델·입출력·수정 한도는 [서브에이전트 실행 규약](SUBAGENTS.md), 권한 제한은 [권한 규약](PERMISSIONS.md)을 참고한다.

@@ -27,6 +27,7 @@ flowchart TD
     start -. "호출 전 기록" .-> state[".local/workflow-runs/ID/<br/>단계 · 입력 버전 · 질문 · 사용량 · 원응답"]
     gate -. "검토 결과 기록" .-> state
     state -. "resume으로 복원 · 사용량 유지" .-> start
+    state -. "체크포인트마다 결정적으로 생성" .-> handoff["handoff.md · 인수인계 요약<br/>승인·사실 기록이 아닌 상태의 파생본"]
     final --> person["사용자가 최종 결과 확인<br/>승인 명령은 명시적 동의 후 총괄이 실행"]
 ```
 
@@ -45,6 +46,7 @@ npm run workflow -- start 지원ID --review-only --confirm-send
 
 # 상태와 사용량 확인, 예산 등으로 멈춘 단계부터 재개
 npm run workflow -- status 지원ID
+npm run workflow -- handoff 지원ID
 npm run workflow -- resume 지원ID --confirm-send
 ```
 
@@ -78,6 +80,7 @@ state.run_id는 전체 실행 식별자이고 각 모델 응답의 result.run_id
 | budget_exhausted | 다음 모델 호출 전에 예산 도달 감지. 사용량 유지 후 사용자 지시로 예산 변경 |
 | repair_limit | 자동 수정 한도 도달. resume만으로 반복하지 않음 |
 | stale | 입력 변경 감지. 이전 리뷰를 적용하지 않음 |
+| version_mismatch | 코드·규칙·모델·프롬프트 변경 또는 실행 버전 미기록. 명시적 수락 전 재사용·모델 호출 차단 |
 | interrupted / failed | 중단 또는 모델·결과·저장 오류. 호출 사용량과 실행 중 정보 유지 |
 | completed | awaiting_human_approval에서 resume할 때 사람 승인 유효성을 확인하고 저장한 종료 상태 |
 
@@ -90,9 +93,9 @@ npm run workflow -- resume 지원ID --accept-changes --confirm-send
 
 입력이 바뀌면 이전 단계 결과는 재사용하지 않고 분석부터(검토 전용은 구조 검사부터) 다시 진행한다. 이미 쓴 호출·토큰·수정 횟수는 유지한다. 지원 ID도 그대로다. 승인·고정한 문서를 바꾸려면 기존 규칙대로 새 ID를 만든다.
 
-`status`는 저장된 state.json만 읽으며 콘텐츠 변경이나 승인 유효성을 새로 계산하지 않는다. `completed` 실행은 resume해도 다시 검증·실행하지 않는다. 따라서 종료 후 직접 파일을 바꾼 경우에도 실행 기록은 completed로 남을 수 있지만, 웹·승인본 다운로드는 현재 자료로 다시 검사한다. completed를 현재 승인 보증으로 사용하지 않는다.
+`status`는 저장된 state 필드를 반환하고 health에 현재 입력/실행 버전 변경·프로세스 잠금·승인/고정 상태 진단을 덧붙인다. state.status를 자동 갱신하거나 모델 호출·승인을 수행하지 않는다. `completed` 실행은 resume해도 다시 검증·실행하지 않는다. 따라서 종료 후 직접 파일을 바꾼 경우에도 저장 상태는 completed일 수 있지만 health에 변경이 표시되고 웹·다운로드는 현재 자료로 다시 검사한다. completed를 현재 승인 보증으로 사용하지 않는다.
 
-awaiting_human_input·awaiting_human_approval·repair_limit에서 입력이 그대로면 resume은 호출 없이 같은 상태를 반환한다. --accept-changes도 실제 입력 해시가 달라진 경우에만 재검토를 시작하며 단순 강제 재실행 옵션이 아니다. 분석·작성 역할은 FAIL과 NEEDS_INPUT 모두 사람 확인 대기로 처리한다. 두 리뷰 단계는 현재 모두 받은 뒤 취합하며, verifier가 NEEDS_INPUT이어도 형식이 유효하면 품질 역할까지 호출한 후 대기할 수 있다.
+awaiting_human_input·awaiting_human_approval·repair_limit에서 입력과 실행 버전이 그대로면 resume은 호출 없이 대기를 유지한다. --accept-changes는 실제 입력 해시가 달라진 경우에만 재검토를 시작하며 단순 강제 재실행 옵션이 아니다. 버전/입력 불일치 후 원래 구성을 되돌려도 waitingStatus로 기존 사람 대기를 복원하여 우회하지 않는다. 분석·작성 역할은 FAIL과 NEEDS_INPUT 모두 사람 확인 대기로 처리한다. 두 리뷰 단계는 현재 모두 받은 뒤 취합하며, verifier가 NEEDS_INPUT이어도 형식이 유효하면 품질 역할까지 호출한 후 대기할 수 있다.
 
 실행 입력 버전은 이력서 digest·수정 회차와 **verified에서 읽은 모든 경력**의 sourceDigest/usable을 포함한다. 사용하지 않은 경력이나 private·확인 만료 경력이 바뀌어도 실행 상태가 stale이 될 수 있다. 실제 runner에서 입력 변경이 먼저 감지되어 예외가 발생하면 failed로 기록될 수도 있으나 이전 응답을 현재 결과로 적용하지 않는 원칙은 같다. 완료본 승인 해시의 영향 범위는 실제 사용한 경력만 포함하므로 [해시별 범위](REVIEWS.md#해시별-범위와-변경-감지)를 구분한다.
 
@@ -100,10 +103,13 @@ Ctrl+C 또는 종료 신호를 받으면 실행 중 모델을 중단하고 가�
 
 ```sh
 npm run workflow -- recover 지원ID --confirm
-npm run workflow -- resume 지원ID --retry-interrupted --confirm-send
+npm run workflow -- handoff 지원ID
+npm run workflow -- resume 지원ID --confirm-send
 ```
 
 살아 있는 프로세스의 잠금은 제거하지 않는다. 이미 저장된 모델 결과가 있고 입력 버전이 같으면 재호출 없이 재사용할 수 있다. 결과를 받았는지 불확실한 호출은 자동 재시도하지 않으며 `--retry-interrupted`를 명시해야 한다. 실패한 호출도 호출 예산에서 차감한다. 콘텐츠 저장 트랜잭션의 잠금·복구는 별도로 기존 `career recover --confirm` 절차를 따른다.
+
+복구 직후 무조건 --retry-interrupted를 붙이지 않는다. 현재 입력·실행 버전과 일치하는 캐시가 있으면 먼저 재사용하고, 결과가 없거나 명시적으로 버릴 때만 추가 비용 확인 후 재호출한다. inFlight.usageRecorded로 사용량 기록 여부를 추적하며 저장된 응답에서 복구한 usage를 중복 합산하지 않는다.
 
 캐시 응답도 현재 계약 검사를 다시 거치므로 잘못된 JSON 결과가 저장되어 있으면 단순 resume으로 통과하지 않는다. --retry-interrupted는 저장된 결과의 재사용 대신 새 호출을 선택하며 이전 호출 비용은 유지한다. workflow recover는 owner.json의 PID가 죽었는지 확인하고 잠금만 제거한다. 내용 롤백·실행 초기화 명령이 아니며 잠금 파일이 없으면 복구할 파일이 없다는 오류가 날 수 있으므로 status와 파일 상태를 먼저 확인한다.
 
@@ -132,11 +138,44 @@ npm run workflow -- resume 지원ID --confirm-send
 
 CLI는 start와 budget에서 --max-calls/--max-tokens/--max-active-ms를 적용한다. resume에 같은 플래그를 붙여 한도를 변경하지 말고 budget ID ... --confirm을 사용한다. maxRepairs/maxInputBytes/callTimeoutMs는 기본 정책 파일에서 설정하며 새 실행에 반영된다. 실행 중 owner.json 잠금이 있으면 budget 변경을 거부한다.
 
-호출 횟수는 격리 probe·실제 모델 실행 전에 예약하므로 준비 단계 실패도 시도 횟수에 포함될 수 있다. 단일 agents run 호출은 실행기의 누적 예산에 포함되지 않는다. 역할 TOML의 모델·추론 강도는 호출할 때마다 읽고 --model도 해당 start/resume 프로세스에만 적용된다. 예산처럼 모델 설정을 state.json에 고정하지 않으므로 재개 시 같은 모델을 원하면 설정/옵션을 유지하고 결과 execution 필드를 확인한다.
+호출 횟수는 격리 probe·실제 모델 실행 전에 예약하므로 준비 단계 실패도 시도 횟수에 포함될 수 있다. 단일 agents run 호출은 실행기의 누적 예산에 포함되지 않는다. 역할 TOML의 모델·추론 강도는 호출 시 읽되 실행기에서는 저장한 executionVersion과 비교한다. start의 --model override는 실행 버전에 보존하여 resume에서 생략해도 유지한다. 다른 --model이나 역할/규칙 변경은 명시적 버전 수락 전 차단한다. 단일 agents run은 별도 실행이므로 이전 workflow의 override를 자동 상속하지 않는다.
 
 활성 시간은 체크포인트 기준 누적이며 강제 종료 직전의 미기록 구간이나 동기식 준비 작업까지 정확하게 강제 종료하는 벽시계 상한은 아니다. 패킷은 먼저 공통 runner의 1MiB 하드 상한을 거친다. 이를 초과하면 입력 준비 실패로 awaiting_human_input, 더 낮게 설정한 실행기 입력 한도를 초과하면 budget_exhausted가 될 수 있다. 자료 분할·요약·선별을 자동 수행하지 않는다.
 
 수정 회차는 호출 전에 예약한다. 수정 모델 실패·예산 중단이 있어도 이미 예약한 회차는 남으며 재개 때 중복 차감하지 않는다. 한도는 지원 ID의 metadata.retries와 실행 기록으로 강제한다. 새 ID 생성·직접 파일 편집·단일 runner 호출까지 합산하는 전역 비용/업무 식별 시스템은 아니므로, 같은 업무를 새 ID나 다른 경로로 반복해 한도를 우회하지 않는 규약을 함께 지킨다. career repair는 구조 검사가 실패했을 때만 원문 선택 재생성을 반복하며 AI 리뷰·의미 오류 수정 루프가 아니다.
+
+## 자동 인수인계와 작업 일지
+
+각 state.json 체크포인트 저장 후 같은 폴더의 handoff.md를 자동 생성한다. 모델 호출 없이 상태·대기 사유·누적 완료 역할 기록·사용량·버전·질문·다음 행동을 정해진 형식으로 요약한다. 완료 역할은 과거 이력도 포함하며 현재 자료의 검증 완료 증거가 아니다. 원본 state 저장이 기준이고 파생 요약 파일 저장에 실패해도 체크포인트를 취소하지 않는다.
+
+`npm run workflow -- handoff 지원ID`는 상태와 현재 프로세스/입력/실행 버전을 읽어 최신 요약을 stdout으로 출력한다. state와 handoff.md를 수정하지 않고 모델도 부르지 않는다. 자동 파일이 없거나 오래돼도 이 명령으로 재구성할 수 있다. 실행 프로세스가 살아 있으면 중복 재개/복구를 제시하지 않고, 죽은 잠금이면 복구 후 다시 진단하도록 안내한다. 비용·전송·변경 수락·사실 확인·최종 승인 명령 안내는 실제 사용자 승인이 아니다.
+
+WORK_LOG는 코드 개발 목적·사용자 결정·미완료 구현·다음 개발 작업을 기록한다. 실행기 단계·응답·사용량을 매번 복사할 필요가 없으며 대상 ID와 필요한 사용자 결정만 보충한다. 경력 사실은 content 원본, 자동 실행 상태는 state.json, 인수인계는 파생 handoff.md로 구분한다. 실행기는 개발 작업 전체나 대화의 정확한 토큰 위치를 복원하는 도구가 아니다. 사용 한도 회복 후 자동 재기동하지 않으며 .local을 잃으면 로컬 재개 기록도 잃으므로 다른 PC에는 필요한 기록을 안전한 비공개 방법으로 함께 전달한다.
+
+## 실행 버전과 재검토
+
+state.version=2에서 executionVersion과 versionHistory를 기록한다. executionVersion은 소스 커밋(없으면 null), 실제 실행 파일 codeDigest, rulesDigest, 결과 계약 버전, Node 버전, 역할별 실효 모델/추론 강도·전체 developer prompt/출력 스키마 해시, modelOverride, 종합 fingerprint를 포함한다. 원응답 execution.version에도 같은 버전 정보를 남긴다. 프롬프트 원문·사용자 홈·원격 URL·경력 내용은 이 메타데이터에 복제하지 않는다.
+
+| 범위 | fingerprint에 사용하는 입력 |
+| --- | --- |
+| 실행 코드/의존성 선언 | lib의 모든 .mjs, scripts/workflow.mjs·agents.mjs·secrets.mjs, package.json·package-lock.json |
+| 규칙 | AGENTS.md, docs/SUBAGENTS.md·REVIEWS.md·PERMISSIONS.md, 네 역할 TOML |
+| 실제 역할 설정 | 모델 ID·추론 강도, roleInstructions가 만든 developer 지침 전체, resultSchema의 JSON Schema, RESULT_CONTRACT_VERSION |
+| 런타임 | Node의 process.version |
+
+Git 커밋 번호는 추적 정보이며 종합 fingerprint에는 넣지 않는다. 파일이 같고 안내 문서만 커밋했다면 커밋 번호가 달라도 재사용할 수 있다. 반대로 미커밋 코드·규칙 변경은 실제 파일 해시로 감지한다. content·.local·기본 workflow-policy.json·README/WORKFLOW/EXECUTOR 안내·웹 UI는 실행 fingerprint에서 제외한다. content는 기존 inputVersion, 예산은 시작 시 저장한 policy로 따로 관리한다. 모델 ID 기록은 제공자의 내부 가중치 고정이나 완전한 재현성·호스트 인증을 의미하지 않으며 설치된 node_modules/CLI 바이너리·OS·로그인 상태까지 해시하지 않는다.
+
+```sh
+# handoff/status의 차이와 비용 확인 후 실행 버전만 수락
+npm run workflow -- resume 지원ID --accept-version-change --confirm-send
+
+# 입력과 실행 버전이 모두 바뀌었다면 둘 다 명시적으로 수락
+npm run workflow -- resume 지원ID --accept-version-change --accept-changes --confirm-send
+```
+
+새 버전 수락은 예전 응답을 그대로 인정하는 옵션이 아니다. 과거 모델 파일·버전 이력과 사용량은 보존하되 현재 단계 결과/캐시 연결을 지우고 분석부터(검토 전용은 구조 검사부터) 재검토한다. 기존 초안 재작성은 같은 수정 한도를 사용한다. 승인·고정한 문서는 새 지원 ID가 필요하다. 실행 버전이 없는 기록도 임의로 추측하지 않고 수락 전 모델 호출을 차단한다. 원본 확인·최종 승인·예산 확대를 대신 수락하지 않는다.
+
+호출 전후 fingerprint와 반환 메타데이터의 버전·모델·추론 강도를 검사하며 실행 중 변경된 결과는 적용하지 않는다. 캐시도 같은 버전이어야 한다. 코드가 실행 중 교체되면 새 프로세스에서 원인을 확인하고 재개하는 것이 원칙이며, 버전 지문은 같은 OS 권한의 파일 조작을 막는 서명 체계가 아니다. 콘텐츠 리뷰/다운로드 게이트가 실행 fingerprint를 별도 승인 조건으로 사용하는 것은 아니므로, 종료된 실행 기록·현재 이력서 해시·실행 버전 검사를 혼동하지 않는다.
 
 ## 중요한 규칙의 관리 위치
 
@@ -149,6 +188,9 @@ CLI는 start와 budget에서 --max-calls/--max-tokens/--max-active-ms를 적용�
 | lib/orchestrator.mjs | 단계 전환, 상태 저장, 수정 횟수, 사람 대기와 재개 |
 | workflow-policy.json | 기본 호출·토큰·시간 한도 |
 | lib/agent-runner.mjs | 읽기 전용 격리 실행 |
+| lib/agent-definition.mjs | 역할 설정과 실제 developer 지침 구성 |
+| lib/execution-version.mjs | 실행 코드·규칙·설정·프롬프트/스키마 버전 캡처 |
+| lib/handoff.mjs | 상태 기반 인수인계·조건별 다음 행동 생성 |
 | tests/orchestrator.test.mjs | 수정 루프·예산·중단·변경·사람 대기 회귀 검증 |
 
 실행기는 사실 확인·최종 승인·Git·외부 지원을 대신하지 않는다. 사람이 확정한 사실은 공통 원본에 남기고, 표현 수정은 해당 이력서에만 저장한다.
