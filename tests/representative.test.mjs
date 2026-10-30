@@ -4,14 +4,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { createApplication, generate, verify, validateAll, recordReview, approve, snapshot } from '../lib/workflow.mjs';
+import { createApplication, generate, verify, validateAll, approve, snapshot } from '../lib/workflow.mjs';
+import { review as recordReview } from './review-fixture.mjs';
 import { careers, appDir } from '../lib/store.mjs';
 
 function setup(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-representative-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.cpSync('content/career', path.join(root, 'content/career'), { recursive: true });
-  fs.cpSync('content/source-approvals', path.join(root, 'content/source-approvals'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content/career', path.join(root, 'content/career'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content/source-approvals', path.join(root, 'content/source-approvals'), { recursive: true });
   return root;
 }
 const base = { id: 'main-resume', kind: 'representative', title: '대표 이력서', company: '', position: '', keywords: [], createdAt: '2026-10-28', deadline: null, jdUrl: null, };

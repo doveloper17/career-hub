@@ -1,0 +1,8 @@
+{
+  "maxRepairs": 2,
+  "maxCalls": 12,
+  "maxObservedTokens": 200000,
+  "maxInputBytes": 1048576,
+  "callTimeoutMs": 600000,
+  "maxActiveMs": 1800000
+}

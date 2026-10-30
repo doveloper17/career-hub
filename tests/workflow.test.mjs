@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createApplication, generate, verify, recordReview, approve, snapshot, digest } from '../lib/workflow.mjs';
+import { createApplication, generate, verify, recordReview as rawReview, approve, snapshot, digest, resumeText, submissionState } from '../lib/workflow.mjs';
+import { review as recordReview, evidence } from './review-fixture.mjs';
 import { appDir, readJson, writeJson, careers, applications } from '../lib/store.mjs';
 import { confirmSource, sourceDigest } from '../lib/source-approval.mjs';
 
 function fixture(t, keywords = ['Kotlin']) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-test-'));
-  fs.cpSync('content/career', path.join(root,'content/career'), { recursive: true });
-  fs.cpSync('content/source-approvals', path.join(root,'content/source-approvals'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content/career', path.join(root,'content/career'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content/source-approvals', path.join(root,'content/source-approvals'), { recursive: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   createApplication({ id:'test-app', company:'가상 회사', position:'Backend', createdAt:'2026-10-28', deadline:null, jdUrl:null, keywords }, '가상 JD: Kotlin 개발자', root);
   generate('test-app', root);
@@ -33,11 +34,17 @@ test('확인된 경력만 선택하고 모든 문장을 출처로 연결한다',
   assert.equal(claims.length,2);
   assert.ok(claims.every(c => c.sources[0] === 'EXP-MORROW-001'));
 });
-test('존재하는 출처 ID를 붙여도 수치를 조작하면 실패한다', t => {
+test('표현은 달라도 구조 검사가 가능하며 의미 오류는 독립 리뷰에서 차단한다', t => {
   const { root, dir } = fixture(t);
   const p = readJson(path.join(dir,'provenance.json')); p.claims[0].text += ' 매출 100억 달성';
   writeJson(path.join(dir,'provenance.json'), p);
-  assert.equal(verify('test-app',root).passed,false);
+  fs.writeFileSync(path.join(dir, 'resume.md'), resumeText(readJson(path.join(dir, 'metadata.json')), p.claims));
+  assert.equal(verify('test-app',root).passed,true); // Structural consistency is not proof of truth.
+  assert.throws(() => rawReview('test-app', { reviewer: '테스트', verdict: 'PASS', checks: { hiring: true, naturalness: true, spelling: true, confidentiality: true }, notes: '근거 없는 통과' }, root), /두 독립 리뷰/);
+  const pair = evidence('test-app', root);
+  pair[0].claim_checks[0].supported = false;
+  assert.throws(() => rawReview('test-app', { reviewer: '테스트', verdict: 'PASS', checks: pair[1].checks, notes: '의미 오류', agentReviews: pair }, root), /의미 검토/);
+  assert.equal(submissionState('test-app', root).downloadable, false);
 });
 test('출처 밖의 문장을 이력서에 추가하면 실패한다', t => {
   const { root, dir } = fixture(t);

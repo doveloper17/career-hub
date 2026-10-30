@@ -1,7 +1,14 @@
-import { marked } from 'marked';
+import { Marked } from 'marked';
 import sanitize from 'sanitize-html';
+const parser = new Marked({ renderer: {
+  code({ text, lang }) {
+    if (lang?.trim() !== 'mermaid') return false;
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return `<pre class="mermaid"><code>${escaped}</code></pre>`;
+  },
+} });
 export function markdown(text: string) {
-  return sanitize(marked.parse(text, { async: false }) as string, { allowedTags: sanitize.defaults.allowedTags.concat(['details', 'summary']), allowedAttributes: { a: ['href', 'title'], '*': ['id'] }, allowedSchemes: ['http', 'https', 'mailto'] });
+  return sanitize(parser.parse(text, { async: false }) as string, { allowedTags: sanitize.defaults.allowedTags.concat(['details', 'summary']), allowedAttributes: { a: ['href', 'title'], pre: ['class'], '*': ['id'] }, allowedClasses: { pre: ['mermaid'] }, allowedSchemes: ['http', 'https', 'mailto'] });
 }
 export const labels: Record<string, string> = {
   draft: '작성 전', needs_human_input: '정보 확인 필요', verification_failed: '사실 검증 실패',

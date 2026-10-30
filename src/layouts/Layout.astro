@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import Diagrams from '../components/Diagrams.astro';
 interface Props { title: string; eyebrow?: string }
 const { title, eyebrow = 'MY CAREER WORKSPACE' } = Astro.props;
 const current = Astro.url.pathname;
@@ -15,6 +16,7 @@ const nav = [{ href: '/', icon: '◫', name: '워크스페이스' }, { href: '/c
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
+    <Diagrams />
     <a class="skip" href="#main">본문으로 이동</a>
     <aside class="sidebar">
       <a class="brand" href="/"><span class="brand-mark">c<span>h</span></span><span>career hub<small>BUILD ON YOUR EXPERIENCE</small></span></a>

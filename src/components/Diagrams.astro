@@ -1,0 +1,45 @@
+<script>
+  async function renderDiagrams() {
+    const blocks = document.querySelectorAll<HTMLPreElement>('pre.mermaid:not([data-rendered])');
+    if (!blocks.length) return;
+    const { default: mermaid } = await import('mermaid');
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      suppressErrorRendering: true,
+      theme: 'neutral',
+      fontFamily: 'sans-serif',
+      flowchart: { htmlLabels: false },
+    });
+    for (const [index, block] of Array.from(blocks).entries()) {
+      const source = block.textContent || '';
+      try {
+        const { svg } = await mermaid.render(`career-diagram-${Date.now()}-${index}`, source);
+        block.innerHTML = svg;
+        block.dataset.rendered = 'true';
+        block.setAttribute('role', 'img');
+        block.setAttribute('aria-label', '프로젝트 구성도');
+      } catch {
+        block.dataset.rendered = 'failed';
+        const note = document.createElement('p');
+        note.className = 'diagram-error';
+        note.textContent = '구성도를 표시할 수 없어 원문 코드를 표시합니다.';
+        block.before(note);
+      }
+    }
+  }
+  renderDiagrams();
+  document.addEventListener('astro:page-load', renderDiagrams);
+</script>
+
+<style is:global>
+  .prose pre.mermaid[data-rendered='true'] {
+    background: #fafbf7;
+    border: 1px solid #e6ebdf;
+    padding: 20px 12px;
+    text-align: center;
+    white-space: normal;
+  }
+  .prose pre.mermaid svg { display: block; margin: auto; max-width: 100%; height: auto; }
+  .prose .diagram-error { color: #a24b32; font-size: 12px; }
+</style>

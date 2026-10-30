@@ -12,7 +12,7 @@ import { verify, submissionState, validateAll } from '../lib/workflow.mjs';
 
 test('기본 콘텐츠는 확인 기록과 함께 복제되며 최종 승인은 별도다', t => {
   const root = fixture(t);
-  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content', path.join(root, 'content'), { recursive: true });
   assert.ok(careers(root).every(c => sourceStatus(c, root).usable));
   assert.equal(verify('main-sample', root).passed, true);
   assert.equal(submissionState('main-sample', root).approved, false);
@@ -21,7 +21,7 @@ test('기본 콘텐츠는 확인 기록과 함께 복제되며 최종 승인은 
 });
 test('확인이 만료된 초안도 조회·빌드할 수 있지만 리뷰·다운로드는 잠긴다', t => {
   const root = fixture(t);
-  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content', path.join(root, 'content'), { recursive: true });
   fs.appendFileSync(path.join(root, 'content/career/verified/companies/morrow.md'), '\n추가 확인이 필요한 기록');
   assert.deepEqual(validateAll(root).errors, []);
   assert.equal(verify('northstar-backend', root).passed, false);
@@ -31,8 +31,8 @@ test('확인이 만료된 초안도 조회·빌드할 수 있지만 리뷰·다�
 });
 
 test('공개 데이터는 등록된 샘플만 허용하고 수정·추가된 개인 자료는 차단한다', () => {
-  const manifest = JSON.parse(fs.readFileSync('template-data.json', 'utf8'));
-  assert.doesNotThrow(() => assertTemplateData(Object.keys(manifest), p => fs.readFileSync(p), manifest));
+  const manifest = JSON.parse(fs.readFileSync('tests/fixtures/template-data.json', 'utf8'));
+  assert.doesNotThrow(() => assertTemplateData(Object.keys(manifest), p => fs.readFileSync(path.join('tests/fixtures/template-content', p.slice('content/'.length))), manifest));
   assert.throws(() => assertTemplateData(['content/career/pending/personal.md'], () => '개인 기록', manifest), /등록되지 않은/);
   assert.throws(() => assertTemplateData([Object.keys(manifest)[0]], () => '변경한 개인 자료', manifest), /변경된 데이터/);
   assert.doesNotThrow(() => assertTemplateData(['README.md'], () => '문서', manifest));
@@ -81,7 +81,7 @@ test('새 작업 기록을 만들고 재실행해도 기존 기록을 보존한�
 });
 test('README CLI 예제가 단일 데이터 경로로 생성·검증된다', t => {
   const root = fixture(t);
-  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content', path.join(root, 'content'), { recursive: true });
   fs.copyFileSync('.env.example', path.join(root, '.env'));
   const env = { ...process.env };
   delete env.PORT;

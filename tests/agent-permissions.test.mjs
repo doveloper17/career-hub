@@ -10,12 +10,13 @@ import { permissionConfig, overrides, createWorkspace, roleExecution } from '../
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-permission-test-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content', path.join(root, 'content'), { recursive: true });
   return root;
 }
 function passing(packet) {
   return { run_id: packet.run_id, application_id: packet.application_id, role: packet.role, round: packet.round,
     target_digest: packet.target_digest, status: 'PASS', summary: '테스트 전용', findings: [], questions: [],
+    ...(packet.role === 'verifier' ? { claim_checks: packet.provenance.claims.map(c => ({ claim_id: c.id, supported: true, reason: '테스트 대역' })) } : {}),
     checks: Object.fromEntries(checksFor(packet.role).map(k => [k, true])) };
 }
 test('분석 결과의 없는 출처·새 근거·미해결 PASS를 거절한다', t => {
@@ -110,6 +111,8 @@ test('리뷰 결과는 역할·버전·실행 ID 및 모든 check가 일치해�
   assert.throws(() => validateResult({ ...result, checks: { ...result.checks, context: false } }, packet), /PASS/);
   assert.throws(() => validateResult({ ...result, questions: ['미확인 사실'] }, packet), /PASS/);
   assert.throws(() => validateResult({ ...result, approval: true }, packet));
+  assert.throws(() => validateResult({ ...result, claim_checks: [] }, packet), /의미 보존/);
+  assert.throws(() => validateResult({ ...result, claim_checks: result.claim_checks.map(c => ({ ...c, supported: false })) }, packet), /의미 보존/);
   assert.notEqual(packetHash(packet), packetHash({ ...packet, jd: packet.jd + '변경' }));
 });
 test('손상된 원본 및 비밀정보 패턴이 있는 전달 자료를 차단한다', t => {
@@ -120,13 +123,14 @@ test('손상된 원본 및 비밀정보 패턴이 있는 전달 자료를 차단
   fs.writeFileSync(path.join(dir, 'jd-raw.md'), ['sk', 'a'.repeat(30)].join('-'));
   assert.throws(() => preparePacket('main-sample', 'job-market-analyst', root), /비밀정보/);
 });
-test('작성자는 새로운 문장이나 빈 PASS를 반환할 수 없다', t => {
+test('작성자는 표현 변경이 가능하지만 없는 출처와 빈 PASS는 반환할 수 없다', t => {
   const root = fixture(t);
   const packet = preparePacket('main-sample', 'resume-writer', root);
   const source = packet.sources[0];
   const { checks, ...result } = passing(packet);
   Object.assign(result, { claims: [{ id: 'one', text: source.statements[0], sources: [source.id] }], strategy: '원문 선택', proposed_expressions: [] });
   assert.equal(validateResult(result, packet).status, 'PASS');
-  assert.throws(() => validateResult({ ...result, claims: [{ ...result.claims[0], text: '없는 성과' }] }, packet), /원본/);
+  assert.equal(validateResult({ ...result, claims: [{ ...result.claims[0], text: '같은 근거를 다른 표현으로 작성한 문장' }] }, packet).status, 'PASS');
+  assert.throws(() => validateResult({ ...result, claims: [{ ...result.claims[0], sources: ['EXP-NONE-001'] }] }, packet), /출처/);
   assert.throws(() => validateResult({ ...result, claims: [] }, packet), /빈 초안/);
 });

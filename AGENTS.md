@@ -2,7 +2,7 @@
 
 ## 프로젝트 개요
 
-Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사실을 선택·정렬하여 JD별 이력서와 대표 이력서를 만드는 로컬 도구다. 경력 원본이 사실의 기준이며 JD 맞춤 전략을 새로운 경력 사실로 취급하지 않는다.
+Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사실을 선택·정렬하며 의미를 보존해 표현하여 JD별 이력서와 대표 이력서를 만드는 로컬 도구다. 경력 원본이 사실의 기준이며 JD 맞춤 전략을 새로운 경력 사실로 취급하지 않는다.
 
 - 공개 저장소는 공통 코드와 가상 샘플을 제공한다. 실제 경력은 클론한 독립 비공개 저장소에서 관리한다.
 - 경력은 `content/career/`, 이력서는 `content/applications/`에서 관리한다. `repository.json`은 Git 보호 정책을 설정한다.
@@ -19,6 +19,7 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 | [README.md](README.md) | 컨셉, 설치, OS별 환경 설정, 스키마, CLI 예제와 운영 방법 |
 | [docs/PLAN.md](docs/PLAN.md) | 현재 설계 계약과 구현 범위 |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | 경력 관리·작성·독립 리뷰·승인 및 변경 시 재검토 흐름도 |
+| [docs/EXECUTOR.md](docs/EXECUTOR.md) | 자동 실행기·표현 수정·사람 대기·상태 저장·재개·예산 관리 |
 | [docs/REVIEWS.md](docs/REVIEWS.md) | JD 분석·사실 검증·품질 리뷰 관점과 반환 기준 |
 | [docs/SUBAGENTS.md](docs/SUBAGENTS.md) | 실제 서브에이전트 호출·입출력·버전·재시도·결과 취합 규약 |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | 역할별 접근 범위, 격리 실행·거부 검사와 한계 |
@@ -34,15 +35,16 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 | `content/career/verified/` | 확인된 회사·프로젝트·스터디 경력. 모두 현재 원본 확인 기록도 필요하다. |
 | `content/applications/ID/metadata.json` | 대상 회사·포지션·종류·버전·상태·승인 정보 |
 | `content/applications/ID/jd-raw.md` | 해당 지원 건의 JD 원문 |
-| `content/applications/ID/jd-analysis.md` | JD 키워드와 경력 연결 결과 |
+| `content/applications/ID/jd-analysis.md` | 실행기는 분석 결과 JSON 텍스트, generate 보조 명령은 키워드/경력 연결 Markdown 저장 |
 | `content/applications/ID/tailoring-plan.md` | 해당 이력서의 선택·정렬·강조 전략 |
 | `content/applications/ID/resume.md` | 생성된 검토용 이력서 |
 | `content/applications/ID/provenance.json` | 문장별 주장과 근거 경력 ID |
-| `content/applications/ID/fact-review.json` | 사실 검증 실행 결과. 과거 PASS만으로 현재 통과를 단정하지 않는다. |
-| `content/applications/ID/quality-review.json` | 해당 문서 해시에 대한 품질 리뷰 기록 |
+| `content/applications/ID/fact-review.json` | career verify가 저장하는 구조·출처 검사 결과. AI 의미 검토 결과가 아니다. |
+| `content/applications/ID/quality-review.json` | 해당 문서 해시에 대한 PASS/FAIL과 두 독립 리뷰 증거 |
 | `content/applications/ID/submissions/vN/` | 덮어쓰지 않는 로컬 고정본. 실제 채용 사이트 제출이 아니다. |
 | `content/source-approvals/` | 원본의 확인자·시각·해시 기록. 콘텐츠와 함께 관리하며 원본 변경 시 만료된다. |
 | `.local/workflow-lock/` | 저장 잠금·복구 기록·백업. 임의 삭제하지 않는다. |
+| `.local/workflow-runs/ID/` | 실행 단계·입력 버전·원응답·질문·사용량·재개 정보. Git 제외. |
 
 `ID`와 `vN`은 경로 형식을 설명하는 자리표시자다. 실제 ID는 자료에서 확인한다. 가장 최근 파일이라는 이유만으로 요청 대상 JD나 이력서를 임의 선택하지 않는다.
 
@@ -53,6 +55,8 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 - `lib/source-approval.mjs`: 실제 원본 확인 해시와 사용 가능 여부.
 - `lib/workflow.mjs`: 생성·검증·리뷰·승인·고정본·현재 제출 가능 상태.
 - `lib/transaction.mjs`: 쓰기 잠금·변경 전 백업·실패 복구.
+- `lib/orchestrator.mjs`, `scripts/workflow.mjs`: 단계 자동 연결, 표현 수정 루프, 상태 저장·재개·예산 검사.
+- `lib/agent-contract.mjs`, `workflow-policy.json`: 역할별 결과 계약과 새 실행의 기본 한도.
 - `scripts/cli.mjs`: CLI 진입점. `src/pages/`와 `src/middleware.ts`: 웹 조회·다운로드·읽기 차단.
 - `scripts/git-guard.mjs`, `scripts/secrets.mjs`, `.githooks/`: Git 보호와 비밀정보 검사.
 - `repository.json`, `template-data.json`: 저장소 정책과 공개 허용 샘플 목록·해시.
@@ -64,17 +68,20 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 | 역할 | 수행할 일 | 반환할 내용 |
 | --- | --- | --- |
 | 총괄(주 세션) | 요청·대상 확인, 계획 기록, 호출·결과 취합, 파일 저장과 CLI 실행 | 변경 내용, 검증 결과, 질문과 다음 단계 |
+| 실행기(프로그램) | 단계별 호출·출력 검증·초안/리뷰 저장·수정 루프·중단/재개·예산 관리 | 실행 상태·두 리뷰 증거·사람 확인 대기 |
 | job-market-analyst | 필수·우대 조건과 경력 연결, 회사 실무/프로젝트/스터디 구분 | 요건별 근거 ID, 부족한 정보와 질문 |
-| resume-writer | 확인된 statements 선택·배치 및 수정 제안 | claims·출처·작성 전략·새 표현 제안 |
+| resume-writer | 확인된 사실을 보존하는 표현 작성·배치·수정 | claims·출처·작성 전략·새 표현 제안 |
 | verifier | 수치·측정 조건·기간·직함·개인 기여·출처 문장 대조 | PASS/FAIL/NEEDS_INPUT, 문제 문장, 근거 ID, 수정 완료 기준 |
 | feedback-coach | 직무 관련성, 문제·행동·결과, 자연스러움, 맞춤법, 기밀 점검 | 항목별 결과와 개선 의견 |
 | 사용자 | 실제 원본 확인, 최종 결과 승인, Git·외부 작업 승인 | 확인한 내용과 허용한 작업 범위 |
 
-총괄만 파일을 수정한다. 서브에이전트는 패킷을 읽고 결과만 총괄에게 반환하며 CLI·승인·Git·추가 위임을 수행하지 않는다. 아래 작업 시작/기록 절차도 총괄의 책임이며 서브에이전트가 WORK_LOG를 초기화하지 않는다. 리뷰에는 현재 digest, 역할과 실제 실행 ID, 근거와 실패 이유를 남긴다. 상세 기준은 [리뷰 지침](docs/REVIEWS.md)을 따른다.
+서브에이전트는 패킷을 읽고 결과만 반환하며 파일 수정·CLI·승인·Git·추가 위임을 수행하지 않는다. 실행기는 초안·전략·리뷰·실행 상태를 검증해 저장한다. 총괄은 원본 반영·사용자 협의·승인받은 CLI 실행을 담당하며 수동 역할 호출 시 결과 저장도 담당한다. 아래 작업 시작/기록 절차도 총괄의 책임이며 서브에이전트가 WORK_LOG를 초기화하지 않는다. 리뷰에는 현재 digest, 역할과 실제 실행 ID, 근거와 실패 이유를 남긴다. 상세 기준은 [리뷰 지침](docs/REVIEWS.md)을 따른다.
+
+자동 흐름은 `npm run workflow -- start ID --confirm-send`로 실행한다. 실행기가 총괄의 정해진 호출·저장·검사 절차를 수행한다. 총괄 에이전트는 목적 해석과 질문·사용자 협의를 담당하고 실행기는 `.local/workflow-runs/ID/`에 단계·입력 버전·사용량을 모델 호출 전후 저장한다. 진행 상태를 기억으로 추측하거나 새 start로 한도를 초기화하지 않는다. `workflow status/resume`와 EXECUTOR.md의 변경 수락·중단 복구 절차를 사용한다. 사실 확인 대기와 최종 승인 대기는 자동으로 통과시키지 않는다.
 
 실행은 `scripts/agents.mjs`의 격리 runner를 사용한다. `doctor` 성공 후에도 매 호출에서 권한을 다시 검사하며 실패하면 중단한다. `run ID ROLE --confirm-send`는 사용자가 자료 전송을 허용한 경우에만 실행한다. 모델·추론 강도는 각 역할 TOML의 `model`·`model_reasoning_effort`를 사용한다. 기본은 네 역할 모두 gpt-6.1-sol, medium이다. 사용자 요청에 따른 `--model MODEL`만 해당 실행의 모델을 우선한다. 접근 오류 시 자동으로 모델을 낮추지 않는다. 일반 spawn이나 역할 지침만 수동 전달하는 호출은 이 권한 강제 경로를 대체하지 않는다. 총괄의 CLI 권한과 모델 도구 권한을 구분한다.
 
-호출 순서는 분석 → 작성 → 코드 검증 → verifier/feedback-coach 독립 검토 → 취합 → 사용자 승인이다. 검토자는 부모 작성 대화를 상속하지 않는 새 문맥으로 실행하고 동일 버전 원본·JD·이력서·출처만 받는다. 서로의 결과는 전달하지 않는다. 모든 결과 수신 후 해시와 필수 check를 대조한다. 자동 수정은 업무별 최대 2회이며 CLI repair 재생성도 함께 센다. 두 PASS는 사람 승인이 아니다.
+호출 순서는 분석 → 작성 → 코드 검증 → verifier/feedback-coach 독립 검토 → 취합 → 사용자 승인이다. 검토자는 부모 작성 대화를 상속하지 않는 새 문맥으로 실행하고 동일 버전 원본·JD·이력서·출처만 받는다. 서로의 결과는 전달하지 않는다. 모든 결과 수신 후 해시와 필수 check를 대조한다. 자동 수정은 지원 ID의 metadata.retries로 최대 2회이며 CLI repair 재생성도 함께 센다. 새 ID/단일 역할 호출까지 합산하는 전역 한도는 아니므로 같은 업무를 다른 경로로 반복해 한도를 우회하지 않는다. 두 PASS는 사람 승인이 아니다.
 
 ## 외부 연결(MCP)과 Hook
 
@@ -90,6 +97,7 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 - `npm run hooks:install`로 설치한다. 기존 Hook을 임의로 덮어쓰지 않는다.
 - `pre-commit`: staged 비밀정보·개인 작업 기록·공개 템플릿 데이터 정책 검사.
 - `pre-push`: 전송 이력·원격 대상·현재 HEAD 승인·작업 트리·이력서 승인 등의 검사.
+- private 정책의 push는 revision>0인 모든 이력서의 현재 승인이 필요하다. 실제 GitHub 저장소의 비공개 여부는 Hook이 조회하지 않으므로 사용자가 확인한다.
 - Hook은 설치해야 작동하며 우회 가능하다. 검사를 피하지 말고 실패 원인을 해결한다. 통과가 완전한 보안이나 사람 승인을 증명하지 않으므로 diff와 원격 공개 범위도 확인한다.
 
 ## 절대 규칙과 제약 사항
@@ -101,9 +109,10 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 3. 모든 경력은 현재 원본 해시에 맞는 확인 기록이 있어야 한다. 기본 예시는 원본 확인을 완료했다고 가정한 기록을 제공한다. 본인 내용으로 교체하면 기존 기록이 만료된다. `verified` 폴더나 `confirmedBy` 이름만으로 승인되었다고 판단하지 않는다.
 4. `visibility: private`은 확인 기록이 있어도 생성에서 제외한다. 공개 가능 표현은 기밀을 제거한 별도 원본으로 정리해 확인받는다.
 5. 앱에는 예시/본인 자료별 실행 모드나 구분 필드를 두지 않는다. 본인 자료로 사용하기 전에 예시 콘텐츠를 교체한다. 통과를 위해 `visibility`나 확인 해시를 임의 변경하거나 개인 자료를 공개 샘플 목록에 등록하지 않는다.
-6. 생성 문장은 사용 가능한 원본 `statements`와 정확히 일치해야 한다. 출처 ID 존재만으로 충분하지 않으며 연결한 출처 모두를 대조한다. 새 표현은 사실 확인 후 원본에 등록하고 다시 확인받는다.
+6. 이력서 표현·구성은 원문과 달라도 되지만 원본 사실·수치·조건·개인 기여를 보존해야 한다. 원본 확인·출처·본문 구조는 코드가 검사하고, verifier가 모든 문장의 claim_checks로 의미 보존을 검토한다. 현재 버전의 두 독립 PASS와 문장별 의미 검토 없이 PASS 리뷰를 기록하거나 승인하지 않는다. 단순 표현 수정은 이력서에만 저장한다. 경력 사실의 추가·수정은 사람 확인 후 원본에 저장한다.
 7. 질문 전에 해당 경력 ID의 원본·현재 확인 기록·pending 해결 상태를 먼저 조회한다. 같은 조건과 범위로 유효하게 확인된 사실을 다시 묻지 않는다. 누락·충돌·만료된 부분만 질문한다.
 8. 사용자가 새 사실을 확인하면 총괄이 해당 경력 원본의 본문·관련 필드·사용할 statements에 반영한 뒤 사용자가 확인한 최종 내용의 현재 해시로 원본 확인 기록을 갱신한다. 의미를 확장하지 않았고 현재 사용자 확인으로 충분하면 동일 사실을 재질문하지 않는다. 미해결 질문에는 해결 상태·원본 ID·반영 위치를 남긴다. 대화나 .local 로그만을 사실의 보관 장소로 삼지 않는다.
+9. 코드 구조 PASS는 의미 검토 PASS가 아니며 AI 두 PASS도 사실 오류가 없다는 보장이 아니다. 출처 존재·해시 일치·검토 항목 충족을 현실의 경력 증명으로 설명하지 않는다. 사람은 최종 문장의 수치·조건·팀/개인 기여를 확인한다.
 
 ### 승인과 제출
 
@@ -141,17 +150,17 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 
 1. JD·회사·포지션·강조 키워드·공개 범위를 확인한다. 사실 정보가 부족하면 기존 원본과 확인 기록에서 먼저 찾고, 없는 부분만 질문한다. 새로 확인한 사실은 원본과 확인 기록에 저장한 뒤 같은 지원 건을 재개한다.
 2. 사용 가능한 실제 원본의 확인 기록을 점검한다. 확인되지 않은 자료는 생성에 사용하지 않는다.
-3. job-market-analyst → resume-writer를 새 문맥으로 호출한다. 총괄이 README의 `new` 형식으로 새 ID를 만들고 초안을 저장한다. 기존 `generate ID` 결과와 작성 제안이 일치하는지 확인하며 적용하지 않은 제안을 저장된 결과라고 보고하지 않는다. CLI는 프로젝트 루트에서 `npm run career -- 명령` 형식으로 실행한다.
-4. `verify ID`로 문장·출처·본문 일치를 검사한다. 키워드 일치를 실무 숙련도나 JD 의미 검증으로 간주하지 않는다.
+3. README의 `new` 형식으로 새 ID를 만들고 `npm run workflow -- start ID --confirm-send`로 분석·작성·두 리뷰·표현 수정을 연결한다. 사용자가 허용한 자료와 호출 범위만 사용한다. 기존 초안부터 검토·수정할 때 --review-only로 최초 분석·작성을 생략할 수 있지만 FAIL이면 초안도 바뀐다. 무변경 검토만 요청받으면 단일 역할 runner로 결과만 반환하며 실행기를 사용하지 않는다. 수동으로 역할을 실행해도 같은 결과 계약과 한도를 따른다.
+4. `verify ID`는 원본 확인·출처·본문 구조 검사다. 구조 PASS나 키워드 일치를 문장 의미 보존·실무 숙련도·JD 의미 검증으로 간주하지 않는다.
 5. 사실 오류와 품질 문제를 구분한다. `repair ID`는 지원 건별 최대 2회다. 정보 부족은 반복으로 해결하지 않으며 카운터 초기화나 새 ID 반복 생성으로 한도를 우회하지 않는다.
-6. 현재 digest의 verifier·feedback-coach를 독립 호출하고 모두 기다린다. 두 PASS와 필수 check 및 현재 해시를 확인한 뒤 총괄이 `review`로 기록한다. FAIL·NEEDS_INPUT·실행 오류에는 구체적인 이유와 재개 조건을 남긴다. 변경된 버전은 코드 검사와 두 리뷰를 다시 거친다.
+6. 실행기는 현재 digest의 verifier·feedback-coach를 독립 호출하고 모든 claim_checks·필수 check·현재 해시를 검사해 두 결과를 리뷰 증거로 저장한다. FAIL은 근거를 작성자에게 전달해 최대 2회 표현 수정한다. NEEDS_INPUT은 사람 확인까지 대기하며 원본을 자동 수정하지 않는다. 모델 실패·예산 도달 시 상태를 보존하고 사용자 지시 없이 예산을 늘리거나 무한 재시도하지 않는다.
 7. 현재 결과를 사용자에게 보여주고 최종 승인을 기다린다. 승인받은 현재 digest로만 `approve`를 실행한다.
 8. 요청된 경우 `snapshot`으로 고정본을 보관한다. 다운로드는 현재 상태 검사를 따른다. 외부 제출은 별도 요청 없이 하지 않는다.
 
 ### “대표 이력서를 만들어 줘”
 
 - `new-representative`로 제목과 새 ID를 지정한다. 회사·포지션·JD·키워드는 선택 사항이다.
-- 키워드가 없으면 사용 가능한 공개 경력을 최신순으로 선택한다. JD만 주어졌다고 키워드가 자동 추론된 것으로 간주하지 않는다.
+- 실행기는 제목·JD 등 목적을 분석해 현재 확인된 공개 경력을 선택·표현한다. 모델 없는 career generate 보조 명령만 키워드가 없으면 최신순으로 선택하며 JD에서 키워드를 자동 추론하지 않는다.
 - 저장 위치는 동일한 `content/applications/ID/`이며 `kind: representative`로 구분한다. 생성·검증·리뷰·승인 규칙은 동일하다.
 
 ### “이 이력서를 리뷰해 줘”
@@ -172,6 +181,8 @@ Career Hub는 사람이 확인한 경력을 Markdown으로 정리하고, 그 사
 - 잠금을 자동 삭제하거나 검사 코드를 끄지 않는다. 모든 작성 프로세스 종료와 백업을 확인한 뒤 사용자 승인 하에 `npm run career -- recover --confirm`을 실행한다.
 - 잠금 소유 프로세스가 실행 중이거나 백업·저널이 손상되면 우회하지 말고 원인과 복구 필요 사항을 보고한다.
 - 해시는 변경 감지 수단이지 사람 인증이나 사실 증명이 아니다. 동일 OS 권한의 조작, 화면 복사·직접 전송, 다른 프로그램의 쓰기·하드웨어 장애까지 보호한다고 설명하지 않는다.
+- 원본/이력서/실행 입력/패킷의 해시 범위는 docs/REVIEWS.md를 따른다. workflow status는 마지막 저장 상태이고 completed의 재검증 기능은 아니다. 현재 제출 가능성은 공통 submissionState·다운로드 검사로 판단한다.
+- 실행 잠금 workflow-runs/ID/owner.json의 복구와 콘텐츠 트랜잭션 workflow-lock의 롤백은 다르다. workflow recover는 실행 상태·예산을 초기화하지 않는다. 자세한 절차는 docs/EXECUTOR.md를 따른다.
 
 ## 검증과 완료 기준
 

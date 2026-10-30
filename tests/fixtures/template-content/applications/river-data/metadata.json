@@ -1,0 +1,17 @@
+{
+  "id": "river-data",
+  "company": "리버애널리틱스",
+  "position": "Data Engineer",
+  "createdAt": "2026-10-28",
+  "deadline": null,
+  "jdUrl": null,
+  "keywords": [
+    "Python",
+    "PostgreSQL",
+    "Airflow"
+  ],
+  "status": "awaiting_human_approval",
+  "revision": 1,
+  "retries": 0,
+  "approval": null
+}

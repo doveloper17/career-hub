@@ -7,7 +7,7 @@ import { careers } from '../lib/store.mjs';
 import { confirmSource, sourceDigest, sourceStatus } from '../lib/source-approval.mjs';
 import { recover } from '../lib/transaction.mjs';
 
-const { values: v, positionals: p } = parseArgs({ allowPositionals: true, options: Object.fromEntries(['digest','title','id','company','position','jd','keywords','url','deadline','reviewer','notes','by'].map(k => [k,{ type: 'string' }]).concat(['confirm','hiring','naturalness','spelling','confidentiality','fail'].map(k => [k,{ type:'boolean' }]))) });
+const { values: v, positionals: p } = parseArgs({ allowPositionals: true, options: Object.fromEntries(['digest','title','id','company','position','jd','keywords','url','deadline','reviewer','notes','by','results'].map(k => [k,{ type: 'string' }]).concat(['confirm','hiring','naturalness','spelling','confidentiality','fail'].map(k => [k,{ type:'boolean' }]))) });
 const [command, id] = p;
 try {
   let result;
@@ -21,7 +21,9 @@ try {
       result = verify(id);
     }
   }
-  else if (command === 'review') result = recordReview(id, { reviewer: v.reviewer, notes: v.notes, verdict: v.fail ? 'FAIL' : 'PASS', checks: { hiring: !!v.hiring, naturalness: !!v.naturalness, spelling: !!v.spelling, confidentiality: !!v.confidentiality } });
+  else if (command === 'review') result = recordReview(id, { reviewer: v.reviewer, notes: v.notes, verdict: v.fail ? 'FAIL' : 'PASS',
+    agentReviews: v.results ? JSON.parse(fs.readFileSync(v.results, 'utf8')).map(r => r.result || r) : undefined,
+    checks: { hiring: !!v.hiring, naturalness: !!v.naturalness, spelling: !!v.spelling, confidentiality: !!v.confidentiality } });
   else if (command === 'approve') { if (!v.confirm) throw new Error('사람 승인 후 --confirm --by 이름을 지정하세요.'); result = approve(id, v.by, undefined, v.digest); }
   else if (command === 'snapshot') { if (!v.confirm) throw new Error('고정본 생성 확인에 --confirm이 필요합니다.'); result = snapshot(id); }
   else if (command === 'source-digest') {
@@ -39,6 +41,6 @@ try {
   }
   else if (command === 'digest') result = digest(id);
   else if (command === 'validate') { result = validateAll(); if (result.errors.length) process.exitCode = 1; }
-  else result = '명령: new-representative --id --title [--company --position --jd --keywords] | new --id --company --position --jd --keywords | generate ID | verify ID | repair ID | review ID --reviewer --notes --hiring --naturalness --spelling --confidentiality | approve ID --by 이름 --digest 확인한해시 --confirm | snapshot ID --confirm | source-digest EXP-ID | source-approve EXP-ID --by 이름 --digest 확인한해시 --confirm | recover --confirm | validate';
+  else result = '명령: new-representative --id --title [--company --position --jd --keywords] | new --id --company --position --jd --keywords | generate ID | verify ID | repair ID | review ID --results 두리뷰결과.json --reviewer --notes --hiring --naturalness --spelling --confidentiality | approve ID --by 이름 --digest 확인한해시 --confirm | snapshot ID --confirm | source-digest EXP-ID | source-approve EXP-ID --by 이름 --digest 확인한해시 --confirm | recover --confirm | validate';
   console.log(JSON.stringify(result, null, 2));
 } catch (error) { console.error(error.message); process.exitCode = 1; }
