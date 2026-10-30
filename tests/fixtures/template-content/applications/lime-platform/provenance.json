@@ -1,0 +1,25 @@
+{
+  "claims": [
+    {
+      "id": "EXP-FOLIO-001-1",
+      "text": "TypeScript와 Node.js로 배포 전 API 스모크 테스트를 구현했다.",
+      "sources": [
+        "EXP-FOLIO-001"
+      ]
+    },
+    {
+      "id": "EXP-FOLIO-001-2",
+      "text": "CI/CD 과정에서 검증 결과를 팀과 공유하도록 배포 확인 절차를 정리했다.",
+      "sources": [
+        "EXP-FOLIO-001"
+      ]
+    },
+    {
+      "id": "EXP-TINY-001-1",
+      "text": "Astro와 TypeScript로 Markdown 기록을 태그와 제목으로 검색하는 개인 도구를 구현했다.",
+      "sources": [
+        "EXP-TINY-001"
+      ]
+    }
+  ]
+}

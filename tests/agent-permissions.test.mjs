@@ -10,7 +10,7 @@ import { permissionConfig, overrides, createWorkspace, roleExecution } from '../
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-permission-test-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content', path.join(root, 'content'), { recursive: true });
   return root;
 }
 function passing(packet) {

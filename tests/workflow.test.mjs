@@ -9,8 +9,8 @@ import { confirmSource, sourceDigest } from '../lib/source-approval.mjs';
 
 function fixture(t, keywords = ['Kotlin']) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-test-'));
-  fs.cpSync('content/career', path.join(root,'content/career'), { recursive: true });
-  fs.cpSync('content/source-approvals', path.join(root,'content/source-approvals'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content/career', path.join(root,'content/career'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content/source-approvals', path.join(root,'content/source-approvals'), { recursive: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   createApplication({ id:'test-app', company:'가상 회사', position:'Backend', createdAt:'2026-10-28', deadline:null, jdUrl:null, keywords }, '가상 JD: Kotlin 개발자', root);
   generate('test-app', root);

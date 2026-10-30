@@ -13,7 +13,7 @@ import { mutate, recover, assertReadable } from '../lib/transaction.mjs';
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-safety-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.cpSync('content/career', path.join(root, 'content/career'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content/career', path.join(root, 'content/career'), { recursive: true });
   const file = path.join(root, 'content/career/verified/companies/morrow.md');
   const meta = { id: 'real', company: '테스트 회사', position: '개발자', keywords: ['Kotlin'], createdAt: '2026-10-29', deadline: null, jdUrl: null };
   createApplication(meta, '테스트 JD', root);

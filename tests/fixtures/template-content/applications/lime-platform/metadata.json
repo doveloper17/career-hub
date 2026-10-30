@@ -1,0 +1,17 @@
+{
+  "id": "lime-platform",
+  "company": "라임스튜디오",
+  "position": "Platform Engineer",
+  "createdAt": "2026-10-28",
+  "deadline": null,
+  "jdUrl": null,
+  "keywords": [
+    "TypeScript",
+    "Node.js",
+    "CI/CD"
+  ],
+  "status": "awaiting_human_approval",
+  "revision": 1,
+  "retries": 0,
+  "approval": null
+}

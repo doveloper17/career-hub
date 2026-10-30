@@ -12,7 +12,7 @@ import { confirmSource, sourceDigest } from '../../lib/source-approval.mjs';
 
 test('실행 중 추가한 경력·지원·다운로드가 재시작 없이 열리고 삭제 시 404가 된다', { timeout: 20000 }, async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'career-live-'));
-  fs.cpSync('content', path.join(root, 'content'), { recursive: true });
+  fs.cpSync('tests/fixtures/template-content', path.join(root, 'content'), { recursive: true });
   const socket = net.createServer();
   await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve));
   const port = socket.address().port;
@@ -42,7 +42,7 @@ test('실행 중 추가한 경력·지원·다운로드가 재시작 없이 열�
   assert.match(representativePage, /대표 이력서/);
   assert.doesNotMatch(representativePage, /가상 샘플/);
   const realFile = path.join(root, 'content/career/verified/companies/real-test.md');
-  fs.writeFileSync(realFile, fs.readFileSync('content/career/verified/companies/morrow.md', 'utf8')
+  fs.writeFileSync(realFile, fs.readFileSync('tests/fixtures/template-content/career/verified/companies/morrow.md', 'utf8')
     .replaceAll('EXP-MORROW-001', 'EXP-REAL-001').replace('slug: morrow-api', 'slug: real-test'));
   const real = careers(root).find(c => c.id === 'EXP-REAL-001');
   confirmSource(real.id, '테스트 승인자', sourceDigest(real), root);
@@ -68,7 +68,7 @@ test('실행 중 추가한 경력·지원·다운로드가 재시작 없이 열�
   assert.equal((await fetch(`${url}/applications/runtime-added/`)).status, 404);
   assert.equal((await fetch(`${url}/career/runtime-career/`)).status, 404);
   const careerFile = path.join(root, 'content/career/verified/companies/runtime.md');
-  fs.writeFileSync(careerFile, fs.readFileSync('content/career/verified/companies/morrow.md', 'utf8')
+  fs.writeFileSync(careerFile, fs.readFileSync('tests/fixtures/template-content/career/verified/companies/morrow.md', 'utf8')
     .replaceAll('EXP-MORROW-001', 'EXP-RUNTIME-001').replace('slug: morrow-api', 'slug: runtime-career'));
   createApplication({ id: 'runtime-added', company: '실행 중 추가 가상 회사', position: 'Backend', createdAt: '2026-10-28', deadline: null, jdUrl: null, keywords: ['Kotlin'] }, 'Kotlin 가상 JD', root);
   generate('runtime-added', root);

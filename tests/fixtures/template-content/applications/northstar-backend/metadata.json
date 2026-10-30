@@ -1,0 +1,17 @@
+{
+  "id": "northstar-backend",
+  "company": "노스스타",
+  "position": "Backend Engineer",
+  "createdAt": "2026-10-28",
+  "deadline": null,
+  "jdUrl": null,
+  "keywords": [
+    "Kotlin",
+    "Spring Boot",
+    "MySQL"
+  ],
+  "status": "awaiting_human_approval",
+  "revision": 1,
+  "retries": 0,
+  "approval": null
+}

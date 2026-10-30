@@ -78,6 +78,7 @@ flowchart TD
 - 대시보드의 회사 및 프로젝트·스터디 카드를 클릭하면 해당 유형으로 필터링된 경력 목록으로 이동
 - 지원별 이력서 카드는 전체 지원 목록으로, 검토 대기 카드는 검토 대기 상태로 필터링된 지원 목록으로 이동
 - 경력 상세, 대표 이력서, JD 원문, 작성 전략, 지원별 이력서, 리뷰 상태, 출처 비교, Markdown 다운로드
+- Markdown의 Mermaid 코드 블록을 로컬 번들로 구성도 표시. 렌더링 실패 시 원문 코드를 유지합니다.
 - CLI의 JD 접수 → 문장 선택·정렬 → 출처 검증 → 리뷰 기록 → 사람 승인 → 고정본 저장
 - 최대 2회 자동 재생성, 변경에 따른 승인 만료 검사, Secret 검사와 설치형 Git Hook
 
@@ -236,7 +237,7 @@ title: 반복 점검 자동화
 company: 예시회사
 kind: company
 role: 개발자
-start: '2024-01-01'
+start: '2024-01'
 end: null
 status: verified
 visibility: public
@@ -251,7 +252,7 @@ statements:
 ---
 ```
 
-이후 Markdown 본문에 문제·접근·결과·회고를 자세히 씁니다. `kind`는 `company/project/study`, `visibility`는 `public/private`입니다. 기간은 유효한 날짜, 진행 중 종료일은 `null`입니다. 기술 태그와 `statements`는 최소 하나가 필요합니다. ID와 slug는 각각 중복될 수 없습니다.
+이후 Markdown 본문에 문제·접근·결과·회고를 자세히 씁니다. `kind`는 `company/project/study`, `visibility`는 `public/private`입니다. 경력 기간은 월 단위 `YYYY-MM` 또는 날짜 단위 `YYYY-MM-DD`를 사용할 수 있고, 진행 중 종료일은 `null`입니다. 기술 태그와 `statements`는 최소 하나가 필요합니다. ID와 slug는 각각 중복될 수 없습니다.
 
 확인한 경력은 확인자를 기입하고 `content/career/verified/`에 저장합니다. `visibility: public`은 공개 가능성에 대한 정보이지 자동 게시 허가가 아닙니다. 웹은 저장소의 모든 verified 자료를 읽으므로 외부 공개하지 않습니다.
 
